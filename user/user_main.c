@@ -15,7 +15,7 @@ os_event_t loop_queue[LOOP_QUEUE_LEN];
 
 void ICACHE_FLASH_ATTR print_station_config(const struct station_config *config)
 {
-	os_printf("SSID: %s\nPASSWORD: %s\nBSSID_SET: %d\n"
+	ets_uart_printf("SSID: %s\nPASSWORD: %s\nBSSID_SET: %d\n"
 		  "BSSID: %02x:%02x:%02x:%02x:%02x:%02x\n",
 		  config->ssid, config->password, config->bssid_set,
 		  config->bssid[0], config->bssid[1], config->bssid[2],
@@ -33,9 +33,9 @@ const char *print_ip_from_uint32(uint32 addr)
 
 void ICACHE_FLASH_ATTR print_ip_info(const struct ip_info *info)
 {
-	os_printf("IP Address:\t%s\n", print_ip_from_uint32(info->ip.addr));
-	os_printf("Netmask:\t%s\n", print_ip_from_uint32(info->netmask.addr));
-	os_printf("Gateway:\t%s\n", print_ip_from_uint32(info->gw.addr));
+	ets_uart_printf("IP Address:\t%s\n", print_ip_from_uint32(info->ip.addr));
+	ets_uart_printf("Netmask:\t%s\n", print_ip_from_uint32(info->netmask.addr));
+	ets_uart_printf("Gateway:\t%s\n", print_ip_from_uint32(info->gw.addr));
 }
 
 void ICACHE_FLASH_ATTR init_done(void)
@@ -43,38 +43,27 @@ void ICACHE_FLASH_ATTR init_done(void)
 	const char *opmodes[] = {"NONE", "STATION_MODE", "SOFTAP_MODE", "STATIONAP_MODE"};
 	const char *statuses[] = {"STATION_IDLE", "STATION_CONNECTING", "STATION_WRONG_PASSWORD", "STATION_NO_AP_FOUND", "STATION_CONNECT_FAIL", "STATION_GOT_IP"};
 	struct station_config config;
-	struct station_config ap_configs[5];
 	struct ip_info info;
-	uint8 opmode, status, count, id, i, auto_conn;
+	uint8 opmode, status, auto_conn;
 
-	os_printf("System init done.\n");
+	ets_uart_printf("\n---------------\n");
+	ets_uart_printf("System init done.\n");
 
 	opmode = wifi_get_opmode();
-	os_printf("Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
+	ets_uart_printf("Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
 
 	if (!wifi_station_get_config(&config))
-		os_printf("Failed to get wifi station config.\n");
+		ets_uart_printf("Failed to get wifi station config.\n");
 	else
 		print_station_config(&config);
 
+	ets_uart_printf("\n");
 	status = wifi_station_get_connect_status();
-	os_printf("Connection status: %d (%s)\n", status, (status < 6 ? statuses[status] : "???"));
-
-	count = wifi_station_get_ap_info(ap_configs);
-	id = wifi_station_get_current_ap_id();
-
-	os_printf("Recorded info on %d APs\n", count);
-	for (i = 0; i < count; i++) {
-		os_printf("ID: %d\n", i);
-		print_station_config(&(ap_configs[i]));
-		os_printf("\n");
-	}
-
-	os_printf("Current AP id: %d\n", id);
+	ets_uart_printf("Connection status: %d (%s)\n", status, (status < 6 ? statuses[status] : "???"));
 
 	auto_conn = wifi_station_get_auto_connect();
-	os_printf("Auto connect: %d (%s)\n", auto_conn, (auto_conn == 0 ? "No": "Yes"));
-	os_printf("\n\n");
+	ets_uart_printf("Auto connect: %d (%s)\n", auto_conn, (auto_conn == 0 ? "No": "Yes"));
+	ets_uart_printf("\n\n");
 }
 
 void wifi_handler(System_Event_t *event)
@@ -82,9 +71,24 @@ void wifi_handler(System_Event_t *event)
 	struct ip_info info;
 
 	switch (event->event) {
+		case EVENT_STAMODE_CONNECTED:
+			ets_uart_printf("Connected to Access Point!\n");
+			ets_uart_printf("SSID: %s\n", event->event_info.connected.ssid);
+			ets_uart_printf("BSSID: %02x:%02x:%02x:%02x:%02x:%02x\n",
+					event->event_info.connected.bssid[0],
+					event->event_info.connected.bssid[1],
+					event->event_info.connected.bssid[2],
+					event->event_info.connected.bssid[3],
+					event->event_info.connected.bssid[4],
+					event->event_info.connected.bssid[5]);
+			ets_uart_printf("Channel: %d\n", event->event_info.connected.channel);
+			ets_uart_printf("\n");
+			break;
+
 		case EVENT_STAMODE_GOT_IP:
-			os_printf("Got IP!\n");
+			ets_uart_printf("Got IP!\n");
 			print_ip_info((struct ip_info *)&(event->event_info.got_ip));
+			ets_uart_printf("\n");
 			break;
 		default:
 			break;
@@ -134,6 +138,7 @@ void ICACHE_FLASH_ATTR user_init()
 	config.bssid_set = 0;
 
 	system_restore();
+	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
 	
 	system_set_os_print(0);
