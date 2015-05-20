@@ -3,8 +3,14 @@
 #include "os_type.h"
 #include "user_interface.h"
 #include "user_config.h"
+#include "spi_flash.h"
+#include "c_types.h"
+
 
 #define LOOP_QUEUE_LEN 1
+#define USER_FLASH_ADDRESS 0x3D000
+#define USER_FLASH_SECTOR 0x3D
+
 os_event_t loop_queue[LOOP_QUEUE_LEN];
 
 void ICACHE_FLASH_ATTR print_station_config(const struct station_config *config)
@@ -91,6 +97,33 @@ void ICACHE_FLASH_ATTR loop(os_event_t *e)
 	os_delay_us(100);
 	system_os_post(USER_TASK_PRIO_0, 0, 0);
 }
+int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size){
+	int erase,write,read_back;
+	//must erase whole sector before writing
+	erase=spi_flash_erase_sector(USER_FLASH_SECTOR);
+	if(erase){
+		ets_uart_printf("Erase failed.");
+		return -1;
+	}
+	write=spi_flash_write(USER_FLASH_ADDRESS, data, size);
+	if(write){
+		ets_uart_printf("Write failed.");
+		return -1;
+	}
+	uint32 read_back_test;
+	read_back=spi_flash_read(USER_FLASH_ADDRESS, &read_back_test, size);
+	if(read_back){
+		ets_uart_printf("Read back failed.");
+		return -1;
+	}
+	else if(read_back_test!=*data){
+		ets_uart_printf("Read back does not match.");
+		return -1;
+	}
+	return 0;
+
+} 
+
 
 void ICACHE_FLASH_ATTR user_init()
 {
@@ -102,13 +135,18 @@ void ICACHE_FLASH_ATTR user_init()
 
 	system_restore();
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
-
-	wifi_set_opmode(STATION_MODE);
-	wifi_station_set_config(&config);
 	
-	system_init_done_cb(&init_done);
-	wifi_set_event_handler_cb(wifi_handler);
+	system_set_os_print(0);
+	
+	uint32 i=23;
+	write_to_flash(&i,sizeof(uint32));
 
-	system_os_task(loop, USER_TASK_PRIO_0, loop_queue, LOOP_QUEUE_LEN);
-	system_os_post(USER_TASK_PRIO_0, 0, 0);
+	// wifi_set_opmode(STATION_MODE);
+	// wifi_station_set_config(&config);
+	
+	// system_init_done_cb(&init_done);
+	// wifi_set_event_handler_cb(wifi_handler);
+
+	// system_os_task(loop, USER_TASK_PRIO_0, loop_queue, LOOP_QUEUE_LEN);
+	// system_os_post(USER_TASK_PRIO_0, 0, 0);
 }
