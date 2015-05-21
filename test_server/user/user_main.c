@@ -9,8 +9,8 @@
 #include "ap_server.h"
 #include "helper.h"
 
-struct espconn ap_server_conn;
-esp_tcp ap_server_tcp;
+struct espconn server_conn;
+esp_tcp server_tcp;
 
 void ICACHE_FLASH_ATTR init_done()
 {

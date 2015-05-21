@@ -7,7 +7,7 @@
 char * ICACHE_FLASH_ATTR separate(char *str, char sep)
 {
 	size_t len;
-	int i;
+	size_t i;
 
 	len = strlen(str);
 
@@ -21,6 +21,18 @@ char * ICACHE_FLASH_ATTR separate(char *str, char sep)
 	return NULL;
 }
 
+void ICACHE_FLASH_ATTR strip_newline(char *str)
+{
+	int i;
+
+	i = strlen(str) - 1;
+
+	while ((i >= 0) && (str[i] == '\n' || str[i] == '\r')) {
+		str[i] = '\0';
+		--i;
+	}
+}
+
 void ICACHE_FLASH_ATTR print_softap_config(const struct softap_config *config)
 {
 	ets_uart_printf("SSID:\t\t\t%s\n", config->ssid);
@@ -30,6 +42,17 @@ void ICACHE_FLASH_ATTR print_softap_config(const struct softap_config *config)
 	ets_uart_printf("Hidden:\t\t\t%d\n", config->ssid_hidden);
 	ets_uart_printf("Max connection:\t\t%d\n", config->max_connection);
 	ets_uart_printf("Beacon interval:\t%d\n", config->beacon_interval);
+}
+
+const char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid)
+{
+	static char bssid_str[20];
+
+	os_sprintf(bssid_str, "%02x:%02x:%02x:%02x:%02x:%02x",
+			bssid[0], bssid[1], bssid[2],
+			bssid[3], bssid[4], bssid[5]);
+
+	return bssid_str;
 }
 
 const char * ICACHE_FLASH_ATTR inet_ntoa(uint32 addr)
@@ -70,12 +93,11 @@ int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 		return -1;
 	}
 
-	ets_uart_printf("DEBUG: here I am!\n");
 	if (!wifi_station_connect()) {
 		ets_uart_printf("Failed to connect to router.\n");
 		return -1;
 	}
-	ets_uart_printf("DEBUG: here I am again!\n");
+
 	return 0;
 }
 
