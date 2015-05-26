@@ -4,6 +4,9 @@
 #include "ip_addr.h"
 #include "user_interface.h"
 
+#define USER_FLASH_ADDRESS 0x3D000
+#define USER_FLASH_SECTOR 0x3D
+
 char * ICACHE_FLASH_ATTR separate(char *str, char sep)
 {
 	size_t len;
