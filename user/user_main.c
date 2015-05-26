@@ -10,8 +10,7 @@
 #include "ap_server.h"
 #include "helper.h"
 
-struct espconn server_conn;
-esp_tcp server_tcp;
+
 bool connected=false;
 
 
@@ -75,7 +74,7 @@ void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg){
 }
 void ICACHE_FLASH_ATTR user_init()
 {
-
+	system_restore();
 	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
 	
@@ -85,6 +84,7 @@ void ICACHE_FLASH_ATTR user_init()
 	if(!wifi_station_set_auto_connect(1)){
 		ets_uart_printf("Unable to set auto connect.\n");
 	}
+	wifi_station_set_reconnect_policy(0);
 	ets_uart_printf("\n\n\n");
 	system_init_done_cb(&init_done);
 

@@ -107,7 +107,7 @@ int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password, uint8 channel)
 {
 	struct softap_config config;
-
+	ets_uart_printf("Starting access point");
 	//Set access point mode
 	if (!wifi_set_opmode(SOFTAP_MODE)) {
 		ets_uart_printf("Failed to set as access point mode.\n");
