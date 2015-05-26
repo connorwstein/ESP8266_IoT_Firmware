@@ -1,3 +1,4 @@
+
 #include "ets_sys.h"
 #include "osapi.h"
 #include "os_type.h"
@@ -91,7 +92,7 @@ void ICACHE_FLASH_ATTR ap_server_disconnect_cb(void *arg)
 int ICACHE_FLASH_ATTR ap_server_init()
 {
 	struct ip_info info;
-
+	
 	if (!wifi_get_ip_info(SOFTAP_IF, &info)) {
 		ets_uart_printf("Failed to get ip info.\n");
 		return -1;

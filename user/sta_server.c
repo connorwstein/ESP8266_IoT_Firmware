@@ -7,9 +7,11 @@
 #include "user_config.h"
 
 #include "helper.h"
+#include "ap_server.h"
 
 extern struct espconn server_conn;
 extern esp_tcp server_tcp;
+extern connected;
 
 void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 {
@@ -30,7 +32,8 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			ets_uart_printf("BSSID: %s\n", str_bssid(event->event_info.disconnected.bssid));
 			ets_uart_printf("Reason: %d\n", event->event_info.disconnected.reason);
 			ets_uart_printf("\n");
-
+			//Disconnected from network - convert to AP for reconfiguration
+			ap_server_init();
 			if (espconn_delete(&server_conn) != 0)
 				ets_uart_printf("Failed to delete connection.\n");
 
@@ -39,7 +42,8 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 		case EVENT_STAMODE_GOT_IP:
 			ets_uart_printf("Got IP!\n");
 			print_ip_info((struct ip_info *)&(event->event_info.got_ip));
-			ets_uart_printf("\n");
+			ets_uart_printf("\n");	
+			connected=true;
 			sta_server_init();
 			break;
 

@@ -140,7 +140,7 @@ int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size){
 		ets_uart_printf("Erase failed.");
 		return -1;
 	}
-	write=spi_flash_write(USER_FLASH_ADDRESS, data, size);
+	write=spi_flash_write(USER_FLASH_ADDRESS, (uint32*) data, size);
 	if(write){
 		ets_uart_printf("Write failed.");
 		return -1;
@@ -158,3 +158,13 @@ int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size){
 	return 0;
 
 } 
+
+// int ICACHE_FLASH_ATTR save_ap(void){
+// 	struct station_config config;
+// 	bool get_config_result=wifi_station_get_config(&config);
+// 	ets_uart_printf("Saved configuration: SSID %s, PASS %s, BYTES: %d\n\n", config.ssid, config.password,sizeof(config.ssid)+sizeof(config.password));
+// 	uint32 test=3;
+// 	write_to_flash(&test,(uint32)sizeof(uint32));
+// 	ets_uart_printf("Trying to write ssid now... \n\n");
+// 	write_to_flash((uint32*)&config,(uint32)(sizeof(config.ssid)));
+// }	
