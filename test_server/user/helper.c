@@ -128,3 +128,30 @@ int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password,
 
 	return 0;
 }
+
+int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size){
+	int erase,write,read_back;
+	//must erase whole sector before writing
+	erase=spi_flash_erase_sector(USER_FLASH_SECTOR);
+	if(erase){
+		ets_uart_printf("Erase failed.");
+		return -1;
+	}
+	write=spi_flash_write(USER_FLASH_ADDRESS, data, size);
+	if(write){
+		ets_uart_printf("Write failed.");
+		return -1;
+	}
+	uint32 read_back_test;
+	read_back=spi_flash_read(USER_FLASH_ADDRESS, &read_back_test, size);
+	if(read_back){
+		ets_uart_printf("Read back failed.");
+		return -1;
+	}
+	else if(read_back_test!=*data){
+		ets_uart_printf("Read back does not match.");
+		return -1;
+	}
+	return 0;
+
+} 
