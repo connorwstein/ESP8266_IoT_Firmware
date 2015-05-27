@@ -11,39 +11,76 @@
 #include "sta_server.h"
 
 
-struct espconn server_conn_ap;
-esp_tcp server_tcp_ap;
 
-void ICACHE_FLASH_ATTR ap_server_recv_cb(void *arg, char *pdata, unsigned short len)
-{
-	uint32 remote_ip;
-	int remote_port;
+//"1BCRL-SURE05;openflow"
+//2
+int ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void *arg){
 	char *ssid;
-	char *password;
-
-	remote_ip = *(uint32 *)server_tcp_ap.remote_ip;
-	remote_port = server_tcp_ap.remote_port;
-
-	ets_uart_printf("Received %d bytes from %s:%d!\n", len,
-			inet_ntoa(remote_ip), remote_port);
-	ets_uart_printf("%s\n", pdata);
-
-	ssid = pdata;
-	password = separate(pdata, ';');
+	char *password;	
+	ssid = pdata+sizeof(char);
+	password = separate(pdata, ';',len);
+	if(password==NULL){
+		return;
+	}
 	strip_newline(password);
 
 	if (password) {
 		ets_uart_printf("Received command to connect to SSID: %s with password %s\n",
 				ssid, password);
 	
-		if (espconn_disconnect(&server_conn_ap) != 0)
+		if (espconn_disconnect((struct espconn*)arg) != 0)
 			ets_uart_printf("Failed to disconnect.\n");
 
 		start_station(ssid, password);
-		wifi_set_event_handler_cb(sta_wifi_handler);
 	}
 
 	ets_uart_printf("\n");
+}
+void ICACHE_FLASH_ATTR get_station_ip(uint32 remote_ip,int remote_port, struct espconn *conn){
+// 	bool wifi_get_ip_info(
+// uint8 if_index,
+// struct ip_info *info)
+
+	struct ip_info info;
+	if(!wifi_get_ip_info(STATION_IF,&info)){
+		ets_uart_printf("Unable to get ip address of station\n");
+	}
+
+	uint8 *ipaddress=(uint8 *)&info.ip.addr;
+	ets_uart_printf("IP Address: %s\n",inet_ntoa(info.ip.addr));
+	//responde to remote port with 
+	if(espconn_sent(conn, ipaddress,(uint16)sizeof(info.ip.addr))!=0){
+		ets_uart_printf("Failure to send ip address\n");
+	}
+
+}
+void ICACHE_FLASH_ATTR ap_server_recv_cb(void *arg, char *pdata, unsigned short len)
+{
+	uint32 remote_ip;
+	int remote_port;
+	remote_port=((struct espconn*)arg)->proto.tcp->remote_port;
+	remote_ip=*(uint32*)((struct espconn*)arg)->proto.tcp->remote_ip;
+	
+	ets_uart_printf("Received %d bytes from %s:%d!\n", len,
+			inet_ntoa(remote_ip), remote_port);
+	ets_uart_printf("%s\n", pdata);
+
+	if(len==0){
+		ets_uart_printf("Error in received message.\n");
+		return;
+	}
+	
+	switch(*pdata){
+		case '1':
+			connect_to_network(pdata,len, arg);
+			break;
+		case '2':
+			get_station_ip(remote_ip,remote_port, (struct espconn *)arg);
+			if(!wifi_set_opmode(STATION_MODE)) ets_uart_printf("Error changing opmode\n");
+			break;
+		default:
+			ets_uart_printf("Not a recognized command.\n");
+	}	
 }
 
 void ICACHE_FLASH_ATTR ap_server_sent_cb(void *arg)
@@ -51,11 +88,9 @@ void ICACHE_FLASH_ATTR ap_server_sent_cb(void *arg)
 	uint32 remote_ip;
 	int remote_port;
 
-	remote_ip = *(uint32 *)server_tcp_ap.remote_ip;
-	remote_port = server_tcp_ap.remote_port;
-
-	ets_uart_printf("Sent data to %s:%d!\n",
-			inet_ntoa(remote_ip), remote_port);
+	remote_port=((struct espconn*)arg)->proto.tcp->remote_port;
+	remote_ip=*(uint32*)((struct espconn*)arg)->proto.tcp->remote_ip;
+	ets_uart_printf("Sent data to %s:%d!\n", inet_ntoa(remote_ip), remote_port);
 }
 
 void ICACHE_FLASH_ATTR ap_server_connect_cb(void *arg)
@@ -63,11 +98,9 @@ void ICACHE_FLASH_ATTR ap_server_connect_cb(void *arg)
 	uint32 remote_ip;
 	int remote_port;
 
-	remote_ip = *(uint32 *)server_tcp_ap.remote_ip;
-	remote_port = server_tcp_ap.remote_port;
-
-	ets_uart_printf("New connection from %s:%d!\n",
-			inet_ntoa(remote_ip), remote_port);
+	remote_port=((struct espconn*)arg)->proto.tcp->remote_port;
+	remote_ip=*(uint32*)((struct espconn*)arg)->proto.tcp->remote_ip;
+	ets_uart_printf("New connection from %s:%d!\n",inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
 }
 
@@ -82,8 +115,8 @@ void ICACHE_FLASH_ATTR ap_server_disconnect_cb(void *arg)
 	uint32 remote_ip;
 	int remote_port;
 
-	remote_ip = *(uint32 *)server_tcp_ap.remote_ip;
-	remote_port = server_tcp_ap.remote_port;
+	remote_port=((struct espconn*)arg)->proto.tcp->remote_port;
+	remote_ip=*(uint32*)((struct espconn*)arg)->proto.tcp->remote_ip;
 
 	ets_uart_printf("%s:%d has disconnected!\n",
 			inet_ntoa(remote_ip), remote_port);
@@ -92,8 +125,9 @@ void ICACHE_FLASH_ATTR ap_server_disconnect_cb(void *arg)
 
 int ICACHE_FLASH_ATTR ap_server_init()
 {
-	struct ip_info info;
-	
+	static struct ip_info info;
+	static struct espconn server_conn_ap;
+	static esp_tcp server_tcp_ap;
 
 	if (!wifi_get_ip_info(SOFTAP_IF, &info)) {
 		ets_uart_printf("Failed to get ip info.\n");

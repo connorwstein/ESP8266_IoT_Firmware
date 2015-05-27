@@ -7,12 +7,11 @@
 #define USER_FLASH_ADDRESS 0x3D000
 #define USER_FLASH_SECTOR 0x3D
 
-char * ICACHE_FLASH_ATTR separate(char *str, char sep)
-{
-	size_t len;
-	size_t i;
+extern connected;
 
-	len = strlen(str);
+char * ICACHE_FLASH_ATTR separate(char *str, char sep, unsigned short len)
+{
+	size_t i;
 
 	for (i = 0; i < len; i++) {
 		if (str[i] == sep) {
@@ -107,7 +106,7 @@ int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password, uint8 channel)
 {
 	struct softap_config config;
-	ets_uart_printf("Starting access point");
+	ets_uart_printf("Starting access point\n");
 	//Set access point mode
 	if (!wifi_set_opmode(SOFTAP_MODE)) {
 		ets_uart_printf("Failed to set as access point mode.\n");
@@ -158,13 +157,58 @@ int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size){
 	return 0;
 
 } 
+void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
+{
+	struct ip_info info;
+	
+	switch (event->event) {
+		case EVENT_STAMODE_CONNECTED:
+			ets_uart_printf("Connected to Access Point!\n");
+			ets_uart_printf("SSID: %s\n", event->event_info.connected.ssid);
+			ets_uart_printf("BSSID: %s\n", str_bssid(event->event_info.connected.bssid));
+			ets_uart_printf("Channel: %d\n", event->event_info.connected.channel);
+			ets_uart_printf("\n");
+			break;
 
-// int ICACHE_FLASH_ATTR save_ap(void){
-// 	struct station_config config;
-// 	bool get_config_result=wifi_station_get_config(&config);
-// 	ets_uart_printf("Saved configuration: SSID %s, PASS %s, BYTES: %d\n\n", config.ssid, config.password,sizeof(config.ssid)+sizeof(config.password));
-// 	uint32 test=3;
-// 	write_to_flash(&test,(uint32)sizeof(uint32));
-// 	ets_uart_printf("Trying to write ssid now... \n\n");
-// 	write_to_flash((uint32*)&config,(uint32)(sizeof(config.ssid)));
-// }	
+		case EVENT_STAMODE_DISCONNECTED:
+			ets_uart_printf("Disconnected from Access Point!\n");
+			ets_uart_printf("SSID: %s\n", event->event_info.disconnected.ssid);
+			ets_uart_printf("BSSID: %s\n", str_bssid(event->event_info.disconnected.bssid));
+			ets_uart_printf("Reason: %d\n", event->event_info.disconnected.reason);
+			ets_uart_printf("\n");
+			//Disconnected from network - convert to AP for reconfiguration
+			if(!wifi_station_disconnect()) ets_uart_printf("Failed to disconnect\n");
+			// if(connected)
+			// 	system_restart();
+			//system_os_post(USER_TASK_PRIO_0, RUN_AP, true);
+			// if (espconn_delete(&server_conn_sta) != 0)
+			// 	ets_uart_printf("Failed to delete connection.\n");
+
+			break;
+
+		case EVENT_STAMODE_GOT_IP:
+			ets_uart_printf("Got IP!\n");
+			print_ip_info((struct ip_info *)&(event->event_info.got_ip));
+			ets_uart_printf("\n");	
+			connected =true;
+			sta_server_init();
+			break;
+
+		case EVENT_STAMODE_AUTHMODE_CHANGE:
+			ets_uart_printf("Autho mode change\n");
+			break;
+		case  EVENT_SOFTAPMODE_STACONNECTED:
+			ets_uart_printf("EVENT_SOFTAPMODE_STACONNECTED\n");
+			break;
+		case EVENT_SOFTAPMODE_STADISCONNECTED:
+			ets_uart_printf("EVENT_SOFTAPMODE_STADISCONNECTED\n");
+			
+			break;
+		default:
+			ets_uart_printf("Got event: %d\n", event->event);
+			break;
+	}
+
+}
+
+

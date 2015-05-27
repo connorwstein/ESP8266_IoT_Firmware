@@ -2,3 +2,4 @@
 #define DEFAULT_AP_PASSWORD	""
 #define DEFAULT_AP_CHANNEL	6
 
+#define RUN_AP 0

@@ -7,7 +7,7 @@
 #include "ip_addr.h"
 #include "user_interface.h"
 
-char * ICACHE_FLASH_ATTR separate(char *str, char sep);
+char * ICACHE_FLASH_ATTR separate(char *str, char sep,unsigned short len);
 void ICACHE_FLASH_ATTR strip_newline(char *str);
 
 void ICACHE_FLASH_ATTR print_softap_config(const struct softap_config *config);
@@ -19,5 +19,8 @@ void ICACHE_FLASH_ATTR print_ip_info(const struct ip_info *info);
 
 int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password);
 int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password, uint8 channel);
+void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event);
 
+
+#define RUN_AP 0
 #endif
