@@ -1,4 +1,3 @@
-
 #include "ets_sys.h"
 #include "osapi.h"
 #include "os_type.h"
@@ -10,18 +9,17 @@
 #include "helper.h"
 #include "sta_server.h"
 
-
-
-//"1BCRL-SURE05;openflow"
-//2
-int ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void *arg){
+void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void *arg)
+{
 	char *ssid;
-	char *password;	
-	ssid = pdata+sizeof(char);
+	char *password;
+
+	ssid = pdata + sizeof(char);
 	password = separate(pdata, ';',len);
-	if(password==NULL){
+
+	if (password == NULL)
 		return;
-	}
+
 	strip_newline(password);
 
 	if (password) {
@@ -36,6 +34,8 @@ int ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void *
 
 	ets_uart_printf("\n");
 }
+
+/*
 void ICACHE_FLASH_ATTR get_station_ip(uint32 remote_ip,int remote_port, struct espconn *conn){
 // 	bool wifi_get_ip_info(
 // uint8 if_index,
@@ -54,33 +54,26 @@ void ICACHE_FLASH_ATTR get_station_ip(uint32 remote_ip,int remote_port, struct e
 	}
 
 }
+*/
+
 void ICACHE_FLASH_ATTR ap_server_recv_cb(void *arg, char *pdata, unsigned short len)
 {
 	uint32 remote_ip;
 	int remote_port;
-	remote_port=((struct espconn*)arg)->proto.tcp->remote_port;
-	remote_ip=*(uint32*)((struct espconn*)arg)->proto.tcp->remote_ip;
+
+	remote_port = ((struct espconn*)arg)->proto.tcp->remote_port;
+	remote_ip = *(uint32*)((struct espconn*)arg)->proto.tcp->remote_ip;
 	
 	ets_uart_printf("Received %d bytes from %s:%d!\n", len,
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("%s\n", pdata);
 
-	if(len==0){
+	if (len == 0) {
 		ets_uart_printf("Error in received message.\n");
 		return;
 	}
 	
-	switch(*pdata){
-		case '1':
-			connect_to_network(pdata,len, arg);
-			break;
-		case '2':
-			get_station_ip(remote_ip,remote_port, (struct espconn *)arg);
-			//if(!wifi_set_opmode(STATION_MODE)) ets_uart_printf("Error changing opmode\n");
-			break;
-		default:
-			ets_uart_printf("Not a recognized command.\n");
-	}	
+	connect_to_network(pdata, len, arg);
 }
 
 void ICACHE_FLASH_ATTR ap_server_sent_cb(void *arg)

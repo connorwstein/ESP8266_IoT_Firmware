@@ -9,8 +9,6 @@
 #include "helper.h"
 #include "ap_server.h"
 
-
-
 void ICACHE_FLASH_ATTR sta_server_recv_cb(void *arg, char *pdata, unsigned short len)
 {
 	ets_uart_printf("sta_server_recv_cb\n");

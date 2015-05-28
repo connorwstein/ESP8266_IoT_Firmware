@@ -7,7 +7,7 @@
 #define USER_FLASH_ADDRESS 0x3D000
 #define USER_FLASH_SECTOR 0x3D
 
-extern connected;
+extern bool connected;
 
 char * ICACHE_FLASH_ATTR separate(char *str, char sep, unsigned short len)
 {
@@ -107,6 +107,7 @@ int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password,
 {
 	struct softap_config config;
 	ets_uart_printf("Starting access point\n");
+
 	//Set access point mode
 	if (!wifi_set_opmode(SOFTAP_MODE)) {
 		ets_uart_printf("Failed to set as access point mode.\n");
@@ -176,16 +177,13 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			ets_uart_printf("BSSID: %s\n", str_bssid(event->event_info.disconnected.bssid));
 			ets_uart_printf("Reason: %d\n", event->event_info.disconnected.reason);
 			ets_uart_printf("\n");
+
 			//Disconnected from network - convert to AP for reconfiguration
-			if(!wifi_station_disconnect()){
-				 ets_uart_printf("Failed to disconnect, try to restart\n");
-				 
-			}
-			if(connected)
+			if (!wifi_station_disconnect())
+				 ets_uart_printf("Failed to disconnect.\n");
+
+			if (connected)
 				system_restart();
-			//system_os_post(USER_TASK_PRIO_0, RUN_AP, true);
-			// if (espconn_delete(&server_conn_sta) != 0)
-			// 	ets_uart_printf("Failed to delete connection.\n");
 
 			break;
 
@@ -193,25 +191,24 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			ets_uart_printf("Got IP!\n");
 			print_ip_info((struct ip_info *)&(event->event_info.got_ip));
 			ets_uart_printf("\n");	
-			connected =true;
+			connected = true;
 			sta_server_init();
 			break;
 
 		case EVENT_STAMODE_AUTHMODE_CHANGE:
-			ets_uart_printf("Autho mode change\n");
+			ets_uart_printf("EVENT_STAMODE_AUTHMODE_CHANGE\n");
 			break;
+
 		case  EVENT_SOFTAPMODE_STACONNECTED:
 			ets_uart_printf("EVENT_SOFTAPMODE_STACONNECTED\n");
 			break;
+
 		case EVENT_SOFTAPMODE_STADISCONNECTED:
-			ets_uart_printf("EVENT_SOFTAPMODE_STADISCONNECTED\n");
-			
+			ets_uart_printf("EVENT_SOFTAPMODE_STADISCONNECTED\n");			
 			break;
+
 		default:
 			ets_uart_printf("Got event: %d\n", event->event);
 			break;
 	}
-
 }
-
-
