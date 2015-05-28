@@ -12,6 +12,18 @@
 #define BROADCAST_RESPONSE_BUF_SIZE 45
 #define MAC_ADDRESS_BYTES 6
 
+#define UDP_TIMEOUT_MILLIS 7000
+
+bool nogotit = true;
+
+static void ICACHE_FLASH_ATTR udp_timeout_func(void *timer_arg)
+{
+	if (nogotit == true) {
+		ets_uart_printf("UDP acknowledgement timeout.\n");
+		system_restart();
+	}
+}
+
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
 	uint32 remote_ip;
@@ -27,23 +39,12 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsi
 	ets_uart_printf("\n");
 }
 
-static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsigned short len)
+static void ICACHE_FLASH_ATTR udp_send_ipmac(void *arg)
 {
-	uint32 remote_ip;
-	int remote_port;
 	struct ip_info info;
 	uint8 *ipaddress;
 	uint8 macaddress[MAC_ADDRESS_BYTES];
 	char buff[BROADCAST_RESPONSE_BUF_SIZE];
-
-	ets_uart_printf("sta_udpserver_recv_cb\n");
-	remote_port = ((struct espconn *)arg)->proto.tcp->remote_port;
-	remote_ip = *(uint32 *)((struct espconn *)arg)->proto.tcp->remote_ip;
-
-	ets_uart_printf("Received %d bytes from %s:%d!\n", len,
-			inet_ntoa(remote_ip), remote_port);
-	ets_uart_printf("%s\n", pdata);
-	ets_uart_printf("\n");
 
 	if (!wifi_get_ip_info(STATION_IF, &info)) {
 		ets_uart_printf("Unable to get ip address of station\n");
@@ -58,12 +59,63 @@ static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsi
 		return;
 	}
 
+	os_memset(buff, 0, sizeof buff);
 	ets_uart_printf("Got mac address\n");
 	ets_uart_printf("IP: %s, MAC: %s, len: %d\n", ipaddress, str_mac(macaddress), strlen((char *)ipaddress));
 	os_sprintf(buff,"IP:%s, MAC:%s", inet_ntoa(info.ip.addr), str_mac(macaddress));
-	buff[strlen(buff)] = '\0';
 	ets_uart_printf("Sending: %s", buff);
-	espconn_sent((struct espconn *)arg, (uint8 *)buff, strlen(buff));
+
+	if (espconn_sent((struct espconn *)arg, (uint8 *)buff, strlen(buff)) != 0)
+		ets_uart_printf("espconn_sent failed.\n");
+}
+
+static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsigned short len)
+{
+	uint32 remote_ip;
+	int remote_port;
+	static ETSTimer ptimer;
+	char *macaddr;
+	uint8 my_mac[MAC_ADDRESS_BYTES];
+
+	ets_uart_printf("sta_udpserver_recv_cb\n");
+	remote_port = ((struct espconn *)arg)->proto.tcp->remote_port;
+	remote_ip = *(uint32 *)((struct espconn *)arg)->proto.tcp->remote_ip;
+
+	ets_uart_printf("Received %d bytes from %s:%d!\n", len,
+			inet_ntoa(remote_ip), remote_port);
+	ets_uart_printf("%s\n", pdata);
+	ets_uart_printf("\n");
+
+	if (strncmp(pdata, "HELLO ", strlen("HELLO ")) == 0) {
+		macaddr = separate(pdata, ' ', len);
+
+		if (macaddr == NULL) {
+			ets_uart_printf("Invalid HELLO request.\n");
+			return;
+		}
+
+		strip_newline(macaddr);
+
+		if (!wifi_get_macaddr(STATION_IF, my_mac)) {
+			ets_uart_printf("Failed to get mac address\n");
+			return;
+		}
+
+		ets_uart_printf("Received HELLO request for MAC address: %s\n", macaddr);
+
+		if (strcmp(macaddr, str_mac(my_mac)) == 0) {
+			ets_uart_printf("Got request for my MAC and IP address!\n");
+			udp_send_ipmac(arg);
+
+			/* Set timeout for recieving acknowledgment from phone */
+			os_timer_setfn(&ptimer, udp_timeout_func, NULL);
+			os_timer_arm(&ptimer, UDP_TIMEOUT_MILLIS, 0);
+		}
+
+	} else if (strcmp(pdata, "GOT IT") == 0) {
+		ets_uart_printf("Received acknowledgement!\n");
+		nogotit = false;
+	}
 }
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
@@ -220,4 +272,5 @@ int ICACHE_FLASH_ATTR sta_server_init_udp()
 	}
 
 	ets_uart_printf("Successfully initialized station mode UDP server.\n\n");
+	return 0;
 }

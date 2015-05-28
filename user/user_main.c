@@ -10,7 +10,6 @@
 #include "ap_server.h"
 #include "helper.h"
 
-
 bool HAS_BEEN_CONNECTED_AS_STATION;
 bool HAS_BEEN_AP;
 
@@ -23,7 +22,9 @@ void ICACHE_FLASH_ATTR init_done()
 	enum dhcp_status status;
 
 	opmode = wifi_get_opmode();
-	if(opmode!=SOFTAP_MODE) return;
+
+	if (opmode != SOFTAP_MODE)
+		return;
 
 	ets_uart_printf("Current Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
 
