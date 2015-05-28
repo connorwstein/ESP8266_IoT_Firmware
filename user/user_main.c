@@ -10,7 +10,9 @@
 #include "ap_server.h"
 #include "helper.h"
 
-bool connected = false;
+
+bool HAS_BEEN_CONNECTED_AS_STATION;
+bool HAS_BEEN_AP;
 
 void ICACHE_FLASH_ATTR init_done()
 {
@@ -21,6 +23,8 @@ void ICACHE_FLASH_ATTR init_done()
 	enum dhcp_status status;
 
 	opmode = wifi_get_opmode();
+	if(opmode!=SOFTAP_MODE) return;
+
 	ets_uart_printf("Current Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
 
 	ets_uart_printf("\n");
@@ -53,10 +57,10 @@ void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg){
 	char password[64] = DEFAULT_AP_PASSWORD;
 	uint8 channel = DEFAULT_AP_CHANNEL;
 
-	if (!connected) {
+	if (!HAS_BEEN_CONNECTED_AS_STATION) {
 		ets_uart_printf("Auto connect wifi timeout\n");
 		wifi_set_opmode(SOFTAP_MODE);
-
+		HAS_BEEN_AP=true;
 		if (start_access_point(ssid, password, channel) != 0)
 			ets_uart_printf("Failed to start access point.\n");
 
@@ -71,18 +75,19 @@ void ICACHE_FLASH_ATTR user_init()
 	//system_restore();
 	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
-	connected = false;
-	
+	HAS_BEEN_AP = false;
+	HAS_BEEN_CONNECTED_AS_STATION = false;
+
 	wifi_set_opmode(STATION_MODE);
 	wifi_set_event_handler_cb(sta_wifi_handler);
 
 	if (!wifi_station_set_auto_connect(1))
 		ets_uart_printf("Unable to set auto connect.\n");
 
-	//wifi_station_set_reconnect_policy(0);
+	
 	ets_uart_printf("\n\n\n");
 	system_init_done_cb(&init_done);
 
 	os_timer_setfn(&wifi_connect_timer, wifi_timer_cb, NULL);
-	os_timer_arm(&wifi_connect_timer, 5000, false); 
+	os_timer_arm(&wifi_connect_timer, AUTO_CONNECT_TIMEOUT, false); 
 }

@@ -7,7 +7,8 @@
 #define USER_FLASH_ADDRESS 0x3D000
 #define USER_FLASH_SECTOR 0x3D
 
-extern bool connected;
+extern bool HAS_BEEN_CONNECTED_AS_STATION;
+extern bool HAS_BEEN_AP;
 
 char * ICACHE_FLASH_ATTR separate(char *str, char sep, unsigned short len)
 {
@@ -55,6 +56,16 @@ const char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid)
 			bssid[3], bssid[4], bssid[5]);
 
 	return bssid_str;
+}
+const char * ICACHE_FLASH_ATTR str_mac(uint8 *mac)
+{
+	static char mac_str[20];
+
+	os_sprintf(mac_str, "%02x:%02x:%02x:%02x:%02x:%02x",
+			mac[0], mac[1], mac[2],
+			mac[3], mac[4], mac[5]);
+
+	return mac_str;
 }
 
 const char * ICACHE_FLASH_ATTR inet_ntoa(uint32 addr)
@@ -182,7 +193,9 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			if (!wifi_station_disconnect())
 				 ets_uart_printf("Failed to disconnect.\n");
 
-			if (connected)
+			if (HAS_BEEN_CONNECTED_AS_STATION||HAS_BEEN_AP)
+				//Retart to discovery mode i.e. AP only
+				//Either lost connection or failed to connect to users specified network
 				system_restart();
 
 			break;
@@ -191,7 +204,7 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			ets_uart_printf("Got IP!\n");
 			print_ip_info((struct ip_info *)&(event->event_info.got_ip));
 			ets_uart_printf("\n");	
-			connected = true;
+			HAS_BEEN_CONNECTED_AS_STATION = true;
 			sta_server_init_tcp();
 			sta_server_init_udp();
 			break;

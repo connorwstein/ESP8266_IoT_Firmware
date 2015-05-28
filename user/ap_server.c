@@ -14,7 +14,7 @@ void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void 
 	char *ssid;
 	char *password;
 
-	ssid = pdata + sizeof(char);
+	ssid = pdata;
 	password = separate(pdata, ';',len);
 
 	if (password == NULL)
@@ -35,26 +35,6 @@ void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void 
 	ets_uart_printf("\n");
 }
 
-/*
-void ICACHE_FLASH_ATTR get_station_ip(uint32 remote_ip,int remote_port, struct espconn *conn){
-// 	bool wifi_get_ip_info(
-// uint8 if_index,
-// struct ip_info *info)
-
-	struct ip_info info;
-	if(!wifi_get_ip_info(STATION_IF,&info)){
-		ets_uart_printf("Unable to get ip address of station\n");
-	}
-
-	uint8 *ipaddress=(uint8 *)&info.ip.addr;
-	ets_uart_printf("IP Address: %s\n",inet_ntoa(info.ip.addr));
-	//responde to remote port with 
-	if(espconn_sent(conn, ipaddress,(uint16)sizeof(info.ip.addr))!=0){
-		ets_uart_printf("Failure to send ip address\n");
-	}
-
-}
-*/
 
 void ICACHE_FLASH_ATTR ap_server_recv_cb(void *arg, char *pdata, unsigned short len)
 {
