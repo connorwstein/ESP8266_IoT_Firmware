@@ -76,7 +76,7 @@ void ICACHE_FLASH_ATTR ap_server_recv_cb(void *arg, char *pdata, unsigned short 
 			break;
 		case '2':
 			get_station_ip(remote_ip,remote_port, (struct espconn *)arg);
-			if(!wifi_set_opmode(STATION_MODE)) ets_uart_printf("Error changing opmode\n");
+			//if(!wifi_set_opmode(STATION_MODE)) ets_uart_printf("Error changing opmode\n");
 			break;
 		default:
 			ets_uart_printf("Not a recognized command.\n");

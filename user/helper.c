@@ -177,9 +177,12 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			ets_uart_printf("Reason: %d\n", event->event_info.disconnected.reason);
 			ets_uart_printf("\n");
 			//Disconnected from network - convert to AP for reconfiguration
-			if(!wifi_station_disconnect()) ets_uart_printf("Failed to disconnect\n");
-			// if(connected)
-			// 	system_restart();
+			if(!wifi_station_disconnect()){
+				 ets_uart_printf("Failed to disconnect, try to restart\n");
+				 
+			}
+			if(connected)
+				system_restart();
 			//system_os_post(USER_TASK_PRIO_0, RUN_AP, true);
 			// if (espconn_delete(&server_conn_sta) != 0)
 			// 	ets_uart_printf("Failed to delete connection.\n");

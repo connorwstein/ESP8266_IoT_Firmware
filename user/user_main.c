@@ -52,6 +52,7 @@ void ICACHE_FLASH_ATTR init_done()
 
 			if (ap_server_init() != 0)
 				ets_uart_printf("Failed to initialize ap server.\n");
+			break;
 		case STATIONAP_MODE:
 			ets_uart_printf("System done stationap\n");
 			char ssid[32] = DEFAULT_AP_SSID;
@@ -63,19 +64,8 @@ void ICACHE_FLASH_ATTR init_done()
 		default:
 			ets_uart_printf("default\n");
 	}
-		
-	
-
-
 }
 
-void ICACHE_FLASH_ATTR print_greeting()
-{
-	ets_uart_printf("\n------------------------------\n");
-	ets_uart_printf("          GREETINGS!          ");
-	ets_uart_printf("\n------------------------------\n");
-	ets_uart_printf("\n");
-}
 void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg){
 	char ssid[32] = DEFAULT_AP_SSID;
 	char password[64] = DEFAULT_AP_PASSWORD;
@@ -96,7 +86,7 @@ void ICACHE_FLASH_ATTR user_init()
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
 	connected=false;
 	
-	wifi_set_opmode(STATIONAP_MODE);
+	wifi_set_opmode(STATION_MODE);
 	wifi_set_event_handler_cb(sta_wifi_handler);
 	if(!wifi_station_set_auto_connect(1)){
 		ets_uart_printf("Unable to set auto connect.\n");
