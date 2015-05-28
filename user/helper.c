@@ -192,7 +192,8 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			print_ip_info((struct ip_info *)&(event->event_info.got_ip));
 			ets_uart_printf("\n");	
 			connected = true;
-			sta_server_init();
+			sta_server_init_tcp();
+			sta_server_init_udp();
 			break;
 
 		case EVENT_STAMODE_AUTHMODE_CHANGE:
