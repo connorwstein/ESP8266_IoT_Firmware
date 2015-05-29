@@ -55,9 +55,11 @@ void ICACHE_FLASH_ATTR init_done()
 
 void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg)
 {
-	char ssid[32] = DEFAULT_AP_SSID;
+	char ssid[32];
 	char password[64] = DEFAULT_AP_PASSWORD;
 	uint8 channel = DEFAULT_AP_CHANNEL;
+
+	generate_default_ssid(ssid, sizeof ssid);
 
 	if (!HAS_BEEN_CONNECTED_AS_STATION) {
 		ets_uart_printf("Auto connect wifi timeout\n");

@@ -10,6 +10,8 @@
 char * ICACHE_FLASH_ATTR separate(char *str, char sep,unsigned short len);
 void ICACHE_FLASH_ATTR strip_newline(char *str);
 
+int ICACHE_FLASH_ATTR generate_default_ssid(char *ssid, uint8 len);
+
 void ICACHE_FLASH_ATTR print_softap_config(const struct softap_config *config);
 
 const char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid);

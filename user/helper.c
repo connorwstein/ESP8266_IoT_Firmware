@@ -4,6 +4,8 @@
 #include "ip_addr.h"
 #include "user_interface.h"
 
+#include "user_config.h"
+
 #define USER_FLASH_ADDRESS 0x3D000
 #define USER_FLASH_SECTOR 0x3D
 
@@ -34,6 +36,24 @@ void ICACHE_FLASH_ATTR strip_newline(char *str)
 		str[i] = '\0';
 		--i;
 	}
+}
+
+int ICACHE_FLASH_ATTR generate_default_ssid(char *ssid, uint8 len)
+{
+	uint8 mac[6];
+
+	if (sizeof DEFAULT_AP_SSID_PREFIX + 3 >= len) {
+		ets_uart_printf("SSID too long.\n");
+		return -1;
+	}
+
+	if (!wifi_get_macaddr(SOFTAP_IF, mac)) {
+		ets_uart_printf("Failed to get MAC address.\n");
+		return -1;
+	}
+
+	os_sprintf(ssid, DEFAULT_AP_SSID_PREFIX "%02x%02x%02x", mac[3], mac[4], mac[5]);
+	return 0;
 }
 
 void ICACHE_FLASH_ATTR print_softap_config(const struct softap_config *config)
