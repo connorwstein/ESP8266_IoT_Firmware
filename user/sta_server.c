@@ -9,29 +9,8 @@
 #include "helper.h"
 #include "ap_server.h"
 
-#define BROADCAST_RESPONSE_BUF_SIZE 45
+#define BROADCAST_RESPONSE_BUF_SIZE 20
 #define MAC_ADDRESS_BYTES 6
-
-#define UDP_TIMEOUT_MILLIS 7000
-
-bool GOT_ACKNOWLEDGEMENT = false;
-
-static void ICACHE_FLASH_ATTR udp_timeout_func(void *timer_arg)
-{
-	char ssid[32] = DEFAULT_AP_SSID;
-	char password[64] = DEFAULT_AP_PASSWORD;
-	uint8 channel = DEFAULT_AP_CHANNEL;
-
-	if (GOT_ACKNOWLEDGEMENT == false) {
-		ets_uart_printf("UDP acknowledgement timeout.\n");
-		//system_restart();
-		/* Start as acces point.
-		   Could that break existing TCP connections?
-		   (if another phone already knows my IP and talks through TCP??) */
-		start_access_point(ssid, password, channel);
-		init_done();
-	}
-}
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
@@ -48,11 +27,10 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsi
 	ets_uart_printf("\n");
 }
 
-static void ICACHE_FLASH_ATTR udp_send_ipmac(void *arg)
+static void ICACHE_FLASH_ATTR udp_send_ip(void *arg)
 {
 	struct ip_info info;
 	uint8 *ipaddress;
-	uint8 macaddress[MAC_ADDRESS_BYTES];
 	char buff[BROADCAST_RESPONSE_BUF_SIZE];
 
 	if (!wifi_get_ip_info(STATION_IF, &info)) {
@@ -60,19 +38,10 @@ static void ICACHE_FLASH_ATTR udp_send_ipmac(void *arg)
 		return;
 	}
 
-	ets_uart_printf("Got IP info\n");
 	ipaddress = (uint8 *)inet_ntoa(info.ip.addr);
-
-	if (!wifi_get_macaddr(STATION_IF, macaddress)) {
-		ets_uart_printf("Failed to get mac address\n");
-		return;
-	}
-
 	os_memset(buff, 0, sizeof buff);
-	ets_uart_printf("Got mac address\n");
-	ets_uart_printf("IP: %s, MAC: %s, len: %d\n", ipaddress, str_mac(macaddress), strlen((char *)ipaddress));
-	os_sprintf(buff, "IP:%s, MAC:%s", inet_ntoa(info.ip.addr), str_mac(macaddress));
-	ets_uart_printf("Sending: %s\n", buff);
+	os_sprintf(buff, "IP:%s", inet_ntoa(info.ip.addr));
+	ets_uart_printf("Sending my IP address: %s\n", buff);
 
 	if (espconn_sent((struct espconn *)arg, (uint8 *)buff, strlen(buff)) != 0)
 		ets_uart_printf("espconn_sent failed.\n");
@@ -104,27 +73,17 @@ static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsi
 		}
 
 		strip_newline(macaddr);
+		ets_uart_printf("Received HELLO request for MAC address: %s\n", macaddr);
 
 		if (!wifi_get_macaddr(STATION_IF, my_mac)) {
 			ets_uart_printf("Failed to get mac address\n");
 			return;
 		}
 
-		ets_uart_printf("Received HELLO request for MAC address: %s\n", macaddr);
-
 		if (strcmp(macaddr, str_mac(my_mac)) == 0) {
 			ets_uart_printf("Got request for my MAC and IP address!\n");
-			udp_send_ipmac(arg);
-
-			/* Set timeout for recieving acknowledgment from phone */
-			GOT_ACKNOWLEDGEMENT = false;
-			os_timer_setfn(&ptimer, udp_timeout_func, NULL);
-			os_timer_arm(&ptimer, UDP_TIMEOUT_MILLIS, 0);
+			udp_send_ip(arg);
 		}
-
-	} else if (strcmp(pdata, "GOT IT") == 0) {
-		ets_uart_printf("Received acknowledgement!\n");
-		GOT_ACKNOWLEDGEMENT = true;
 	}
 }
 

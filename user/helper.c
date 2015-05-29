@@ -129,7 +129,7 @@ int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password,
 	os_memcpy(&config.ssid, ssid, 32);
 	os_memcpy(&config.password, password, 64);
 	config.ssid_len = strlen(ssid);
-	config.channel = 6;
+	config.channel = channel;
 	config.authmode = 0;
 	config.ssid_hidden = 0;
 	config.max_connection = 10;
