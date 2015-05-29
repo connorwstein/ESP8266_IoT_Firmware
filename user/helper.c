@@ -6,8 +6,10 @@
 
 #include "user_config.h"
 
-#define USER_FLASH_ADDRESS 0x3D000
-#define USER_FLASH_SECTOR 0x3D
+#define FLASH_GUARD_ADDRESS 0x3C000
+#define FLASH_USED_VALUE 0xDEADBEEF
+#define USER_FLASH_ADDRESS 0x3C004
+#define USER_FLASH_SECTOR 0x3C
 
 extern bool HAS_BEEN_CONNECTED_AS_STATION;
 extern bool HAS_BEEN_AP;
@@ -163,32 +165,86 @@ int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password,
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size){
-	int erase,write,read_back;
-	//must erase whole sector before writing
-	erase=spi_flash_erase_sector(USER_FLASH_SECTOR);
-	if(erase){
-		ets_uart_printf("Erase failed.");
+int ICACHE_FLASH_ATTR read_from_flash(uint32 *data, uint32 size)
+{
+	SpiFlashOpResult read;
+
+	ets_uart_printf("Reading %u bytes from 0x%08x\n", size, USER_FLASH_ADDRESS);
+	read = spi_flash_read(USER_FLASH_ADDRESS, data, size);
+
+	if (read != SPI_FLASH_RESULT_OK) {
+		ets_uart_printf("Spi flash read failed.\n");
 		return -1;
 	}
-	write=spi_flash_write(USER_FLASH_ADDRESS, (uint32*) data, size);
-	if(write){
+
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size)
+{
+	SpiFlashOpResult erase;
+	SpiFlashOpResult write;
+	uint32 used = FLASH_USED_VALUE;
+
+	ets_uart_printf("Erasing sector 0x%02x\n", USER_FLASH_SECTOR);
+	// must erase whole sector before writing
+	erase = spi_flash_erase_sector(USER_FLASH_SECTOR);
+
+	if (erase != SPI_FLASH_RESULT_OK) {
+		ets_uart_printf("Erase failed: %d\n", erase);
+		return -1;
+	}
+
+	ets_uart_printf("Writing %u bytes to 0x%08x\n", size, USER_FLASH_ADDRESS);
+	write = spi_flash_write(USER_FLASH_ADDRESS, data, size);
+
+	if (write != SPI_FLASH_RESULT_OK) {
 		ets_uart_printf("Write failed.");
 		return -1;
 	}
-	uint32 read_back_test;
-	read_back=spi_flash_read(USER_FLASH_ADDRESS, &read_back_test, size);
-	if(read_back){
-		ets_uart_printf("Read back failed.");
-		return -1;
-	}
-	else if(read_back_test!=*data){
-		ets_uart_printf("Read back does not match.");
-		return -1;
-	}
-	return 0;
 
+	ets_uart_printf("Writing flash used value 0x%08x to 0x%08x\n", FLASH_USED_VALUE, FLASH_GUARD_ADDRESS);
+	write = spi_flash_write(FLASH_GUARD_ADDRESS, &used, sizeof used);
+
+	if (write != SPI_FLASH_RESULT_OK) {
+		ets_uart_printf("Write guard flash failed.\n");
+		return -1;
+	}
+
+/*	ets_uart_printf("Reading data from 0x%08x\n", USER_FLASH_ADDRESS);
+	read_back = spi_flash_read(USER_FLASH_ADDRESS, &read_back_test, size);
+
+	if (read_back) {
+		ets_uart_printf("Read back failed: %d\n", read_back);
+		return -1;
+	} else if (read_back_test != *data) {
+		ets_uart_printf("Read back does not match: data = %u, read_back_test = %u\n", *data, read_back_test);
+		return -1;
+	}
+
+	ets_uart_printf("Read %d from 0x%08x\n", read_back_test, USER_FLASH_ADDRESS);
+*/
+	return 0;
 } 
+
+int ICACHE_FLASH_ATTR is_flash_used()
+{
+	SpiFlashOpResult read;
+	uint32 blank;
+
+	read = spi_flash_read(FLASH_GUARD_ADDRESS, &blank, sizeof blank);
+
+	if (read != SPI_FLASH_RESULT_OK) {
+		ets_uart_printf("Spi flash read failed: %d\n", read);
+		return -1;
+	}
+
+	if (blank == FLASH_USED_VALUE)
+		return 1;
+
+	return 0;
+}
+
 void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 {
 	struct ip_info info;

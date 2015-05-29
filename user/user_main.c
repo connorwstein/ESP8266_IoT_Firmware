@@ -76,10 +76,34 @@ void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg)
 void ICACHE_FLASH_ATTR user_init()
 {
 	static ETSTimer wifi_connect_timer;
+	char saved_stuff[12];
+	char to_be_saved[12] = "123456789ab\0";
+	int used;
 
 	//system_restore();
 	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
+	ets_uart_printf("\n\n\n");
+
+	used = is_flash_used();
+	ets_uart_printf("Flash used: %d\n", used);
+
+	if (used < 0) {
+		ets_uart_printf("Error checking if flash used.\n");
+	} else if (used == 0) {
+		if (write_to_flash((uint32 *)to_be_saved, sizeof to_be_saved) != 0)
+			ets_uart_printf("Failed to save to flash.\n");
+		else
+			ets_uart_printf("Sucessfully saved data to flash!\n");
+	} else if (used == 1) {
+		if (read_from_flash((uint32 *)saved_stuff, sizeof saved_stuff) != 0)
+			ets_uart_printf("Failed to read from flash.\n");
+		else
+			ets_uart_printf("Read from flash: %s\n", saved_stuff);
+	} else {
+		ets_uart_printf("What the hell?!\n");
+	}
+	
 	HAS_BEEN_AP = false;
 	HAS_BEEN_CONNECTED_AS_STATION = false;
 
@@ -88,9 +112,7 @@ void ICACHE_FLASH_ATTR user_init()
 
 	if (!wifi_station_set_auto_connect(1))
 		ets_uart_printf("Unable to set auto connect.\n");
-
 	
-	ets_uart_printf("\n\n\n");
 	system_init_done_cb(&init_done);
 
 	os_timer_setfn(&wifi_connect_timer, wifi_timer_cb, NULL);

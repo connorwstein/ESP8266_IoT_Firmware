@@ -25,5 +25,9 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event);
 
 const char * ICACHE_FLASH_ATTR str_mac(uint8 *mac);
 
+int ICACHE_FLASH_ATTR read_from_flash(uint32 *data, uint32 size);
+int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size);
+int ICACHE_FLASH_ATTR is_flash_used();
+
 #define RUN_AP 0
 #endif
