@@ -11,7 +11,7 @@
 #include "helper.h"
 
 bool HAS_BEEN_CONNECTED_AS_STATION;
-bool HAS_BEEN_AP;
+bool HAS_RECEIVED_CONNECT_INSTRUCTION;
 
 void ICACHE_FLASH_ATTR init_done()
 {
@@ -64,7 +64,6 @@ void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg)
 	if (!HAS_BEEN_CONNECTED_AS_STATION) {
 		ets_uart_printf("Auto connect wifi timeout\n");
 		wifi_set_opmode(SOFTAP_MODE);
-		HAS_BEEN_AP = true;
 
 		if (start_access_point(ssid, password, channel) != 0)
 			ets_uart_printf("Failed to start access point.\n");
@@ -104,7 +103,7 @@ void ICACHE_FLASH_ATTR user_init()
 		ets_uart_printf("What the hell?!\n");
 	}
 	
-	HAS_BEEN_AP = false;
+	HAS_RECEIVED_CONNECT_INSTRUCTION = false;
 	HAS_BEEN_CONNECTED_AS_STATION = false;
 
 	wifi_set_opmode(STATION_MODE);

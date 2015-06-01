@@ -9,6 +9,8 @@
 #include "helper.h"
 #include "sta_server.h"
 
+extern bool HAS_RECEIVED_CONNECT_INSTRUCTION;
+
 void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void *arg)
 {
 	char *ssid;
@@ -29,6 +31,7 @@ void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void 
 		if (espconn_disconnect((struct espconn*)arg) != 0)
 			ets_uart_printf("Failed to disconnect.\n");
 
+		HAS_RECEIVED_CONNECT_INSTRUCTION = true;
 		start_station(ssid, password);
 	}
 
