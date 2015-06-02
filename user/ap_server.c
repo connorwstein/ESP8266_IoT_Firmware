@@ -11,13 +11,13 @@
 
 extern bool HAS_RECEIVED_CONNECT_INSTRUCTION;
 
-void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void *arg)
+void ICACHE_FLASH_ATTR connect_to_network(char *pdata, void *arg)
 {
 	char *ssid;
 	char *password;
 
 	ssid = pdata;
-	password = separate(pdata, ';',len);
+	password = separate(pdata, ';');
 
 	if (password == NULL)
 		return;
@@ -28,7 +28,7 @@ void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void 
 		ets_uart_printf("Received command to connect to SSID: %s with password %s\n",
 				ssid, password);
 	
-		if (espconn_disconnect((struct espconn*)arg) != 0)
+		if (espconn_disconnect((struct espconn *)arg) != 0)
 			ets_uart_printf("Failed to disconnect.\n");
 
 		HAS_RECEIVED_CONNECT_INSTRUCTION = true;
@@ -38,6 +38,59 @@ void ICACHE_FLASH_ATTR connect_to_network(char *pdata, unsigned short len, void 
 	ets_uart_printf("\n");
 }
 
+void ICACHE_FLASH_ATTR set_device_name(char *pdata)
+{
+	struct DeviceConfig conf;
+	uint32 min_len;
+
+	strip_newline(pdata);
+	min_len = (strlen(pdata) < sizeof conf.device_name ? strlen(pdata) : sizeof conf.device_name);
+	
+	os_memset(conf.device_name, 0, sizeof conf.device_name);
+
+	if (is_flash_used()) {
+		if (read_device_config(&conf) != 0)
+			ets_uart_printf("Failed to read device config.\n");
+	}
+	
+	os_memset(conf.device_name, 0, sizeof conf.device_name);
+	os_memcpy(conf.device_name, pdata, min_len);
+	ets_uart_printf("Received command to set my device name to %s!\n", conf.device_name);
+
+	if (save_device_config(&conf) != 0)
+		ets_uart_printf("Failed to set my name.\n");
+	else
+		ets_uart_printf("Successfully saved my name!\n");
+
+	ets_uart_printf("\n");
+}
+
+void ICACHE_FLASH_ATTR set_device_type(char *pdata)
+{
+	struct DeviceConfig conf;
+	uint32 min_len;
+
+	strip_newline(pdata);
+	min_len = (strlen(pdata) < sizeof conf.device_type ? strlen(pdata) : sizeof conf.device_type);
+	
+	os_memset(&conf, 0, sizeof conf);
+
+	if (is_flash_used()) {
+		if (read_device_config(&conf) != 0)
+			ets_uart_printf("Failed to read device config.\n");
+	}
+	
+	os_memset(conf.device_type, 0, sizeof conf.device_type);
+	os_memcpy(conf.device_type, pdata, min_len);
+	ets_uart_printf("Received command to set my device type to %s!\n", conf.device_type);
+
+	if (save_device_config(&conf) != 0)
+		ets_uart_printf("Failed to set my type.\n");
+	else
+		ets_uart_printf("Successfully saved my type!\n");
+
+	ets_uart_printf("\n");
+}
 
 void ICACHE_FLASH_ATTR ap_server_recv_cb(void *arg, char *pdata, unsigned short len)
 {
@@ -56,7 +109,12 @@ void ICACHE_FLASH_ATTR ap_server_recv_cb(void *arg, char *pdata, unsigned short 
 		return;
 	}
 	
-	connect_to_network(pdata, len, arg);
+	if (strncmp(pdata, "Connect:", strlen("Connect:")) == 0)
+		connect_to_network(pdata + strlen("Connect:"), arg);
+	else if (strncmp(pdata, "Name:", strlen("Name:")) == 0)
+		set_device_name(pdata + strlen("Name:"));
+	else if (strncmp(pdata, "Type:", strlen("Type:")) == 0)
+		set_device_type(pdata + strlen("Type:"));
 }
 
 void ICACHE_FLASH_ATTR ap_server_sent_cb(void *arg)

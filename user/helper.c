@@ -5,6 +5,7 @@
 #include "user_interface.h"
 
 #include "user_config.h"
+#include "helper.h"
 
 #define FLASH_GUARD_ADDRESS 0x3C000
 #define FLASH_USED_VALUE 0xDEADBEEF
@@ -14,11 +15,11 @@
 extern bool HAS_BEEN_CONNECTED_AS_STATION;
 extern bool HAS_RECEIVED_CONNECT_INSTRUCTION;
 
-char * ICACHE_FLASH_ATTR separate(char *str, char sep, unsigned short len)
+char * ICACHE_FLASH_ATTR separate(char *str, char sep)
 {
 	size_t i;
 
-	for (i = 0; i < len; i++) {
+	for (i = 0; str[i] != '\0'; i++) {
 		if (str[i] == sep) {
 			str[i] = '\0';
 			return str + i + 1;
@@ -242,6 +243,49 @@ int ICACHE_FLASH_ATTR is_flash_used()
 	if (blank == FLASH_USED_VALUE)
 		return 1;
 
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR save_device_config(const struct DeviceConfig *conf)
+{
+	char buf[DEVICE_CONFIG_BUF_LEN];
+
+	if (conf == NULL || conf->device_name == NULL || conf->device_type == NULL)
+		return -1;
+
+	ets_uart_printf("Save device config: device_name = %s, device_type = %s\n", conf->device_name, conf->device_type);
+	os_memset(buf, 0, sizeof buf);
+	os_memcpy(buf, conf->device_name, sizeof conf->device_name);
+	os_memcpy(buf + sizeof conf->device_name, conf->device_type, sizeof conf->device_type);
+	ets_uart_printf("Will write to flash: %s\n", buf);
+
+	if (write_to_flash((uint32 *)buf, sizeof buf) != 0)
+		return -1;
+
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR read_device_config(struct DeviceConfig *conf)
+{
+	char buf[DEVICE_CONFIG_BUF_LEN];
+
+	if (!is_flash_used())
+		return 1;
+
+	if (conf == NULL)
+		return -1;
+
+	os_memset(buf, 0, sizeof buf);
+
+	if (read_from_flash((uint32 *)buf, sizeof buf) != 0)
+		return -1;
+
+	ets_uart_printf("Read from flash: %s\n", buf);
+	os_memset(conf->device_name, 0, sizeof conf->device_name);
+	os_memset(conf->device_type, 0, sizeof conf->device_type);
+	os_memcpy(conf->device_name, buf, sizeof conf->device_name);
+	os_memcpy(conf->device_type, buf + sizeof conf->device_name, sizeof conf->device_type);
+	ets_uart_printf("Read device config: device_name = %s, device_type = %s\n", conf->device_name, conf->device_type);
 	return 0;
 }
 

@@ -7,7 +7,7 @@
 #include "ip_addr.h"
 #include "user_interface.h"
 
-char * ICACHE_FLASH_ATTR separate(char *str, char sep,unsigned short len);
+char * ICACHE_FLASH_ATTR separate(char *str, char sep);
 void ICACHE_FLASH_ATTR strip_newline(char *str);
 
 int ICACHE_FLASH_ATTR generate_default_ssid(char *ssid, uint8 len);
@@ -29,5 +29,14 @@ int ICACHE_FLASH_ATTR read_from_flash(uint32 *data, uint32 size);
 int ICACHE_FLASH_ATTR write_to_flash(uint32 *data, uint32 size);
 int ICACHE_FLASH_ATTR is_flash_used();
 
-#define RUN_AP 0
+#define DEVICE_CONFIG_BUF_LEN 64
+
+struct DeviceConfig {
+	char device_name[32];
+	char device_type[32];
+};
+
+int ICACHE_FLASH_ATTR save_device_config(const struct DeviceConfig *conf);
+int ICACHE_FLASH_ATTR read_device_config(struct DeviceConfig *conf);
+
 #endif

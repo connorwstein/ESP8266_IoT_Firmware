@@ -9,7 +9,7 @@
 #include "helper.h"
 #include "ap_server.h"
 
-#define BROADCAST_RESPONSE_BUF_SIZE 50
+#define BROADCAST_RESPONSE_BUF_SIZE 100
 #define MAC_ADDRESS_BYTES 6
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
@@ -30,6 +30,7 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsi
 static void ICACHE_FLASH_ATTR udp_send_ipmac(void *arg)
 {
 	struct ip_info info;
+	struct DeviceConfig conf;
 	uint8 *ipaddress;
 	uint8 mac[6];
 	char buff[BROADCAST_RESPONSE_BUF_SIZE];
@@ -46,9 +47,14 @@ static void ICACHE_FLASH_ATTR udp_send_ipmac(void *arg)
 		return;
 	}
 
+	if (read_device_config(&conf) != 0) {
+		ets_uart_printf("Failed to read device config.\n");
+		return;
+	}
+
 	os_memset(buff, 0, sizeof buff);
-	os_sprintf(buff, "IP:%s MAC:%s", inet_ntoa(info.ip.addr), str_mac(mac));
-	ets_uart_printf("Sending my IP and MAC address: %s\n", buff);
+	os_sprintf(buff, "NAME:%s IP:%s MAC:%s", conf.device_name, inet_ntoa(info.ip.addr), str_mac(mac));
+	ets_uart_printf("Sending my NAME, IP and MAC address: %s\n", buff);
 
 	if (espconn_sent((struct espconn *)arg, (uint8 *)buff, strlen(buff)) != 0)
 		ets_uart_printf("espconn_sent failed.\n");
@@ -59,6 +65,8 @@ static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsi
 	uint32 remote_ip;
 	int remote_port;
 	static ETSTimer ptimer;
+	struct DeviceConfig conf;
+	char command_buf[sizeof "Hello " + sizeof conf.device_type + sizeof " Devices?"];
 
 	ets_uart_printf("sta_udpserver_recv_cb\n");
 	remote_port = ((struct espconn *)arg)->proto.tcp->remote_port;
@@ -69,8 +77,15 @@ static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsi
 	ets_uart_printf("%s\n", pdata);
 	ets_uart_printf("\n");
 
-	if (strcmp(pdata, "Hello Espressif Devices?") == 0) {
-		ets_uart_printf("Received HELLO request for my MAC and IP address!\n");
+	if (read_device_config(&conf) != 0) {
+		ets_uart_printf("Failed to read device config.");
+		return;
+	}
+
+	os_sprintf(command_buf, "Hello %s Devices?", conf.device_type);
+
+	if (strcmp(pdata, command_buf) == 0) {
+		ets_uart_printf("Received HELLO request for NAME, IP and MAC address!\n");
 		udp_send_ipmac(arg);
 	}
 }
