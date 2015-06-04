@@ -12,6 +12,14 @@
 #define BROADCAST_RESPONSE_BUF_SIZE 100
 #define MAC_ADDRESS_BYTES 6
 
+extern int TEMPERATURE;
+
+static void ICACHE_FLASH_ATTR tcp_set_temperature(char *pdata)
+{
+	TEMPERATURE = atoi(pdata);
+	ets_uart_printf("Set TEMPERATURE to %d\n", TEMPERATURE);
+}
+
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
 	uint32 remote_ip;
@@ -25,6 +33,11 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsi
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("%s\n", pdata);
 	ets_uart_printf("\n");
+
+	if (strncmp(pdata, "Temperature Set:", strlen("Temperature Set:")) == 0) {
+		ets_uart_printf("Received request to set temperature!\n");
+		tcp_set_temperature(pdata + strlen("Temperature Set:"));
+	}
 }
 
 static void ICACHE_FLASH_ATTR udp_send_ipmac(void *arg)
