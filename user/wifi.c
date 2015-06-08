@@ -6,15 +6,19 @@
 #include "helper.h"
 #include "sta_server.h"
 
+#include "debug.h"
+
 extern bool HAS_BEEN_CONNECTED_AS_STATION;
 extern bool HAS_RECEIVED_CONNECT_INSTRUCTION;
 
 int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 {
+	DEBUG("enter start_station");
 	struct station_config config;
 
 	if (!wifi_set_opmode(STATION_MODE)) {
 		ets_uart_printf("Failed to set as station mode.\n");
+		DEBUG("exit start_station");
 		return -1;
 	}
 
@@ -28,25 +32,30 @@ int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 
 	if (!wifi_station_set_config(&config)) {
 		ets_uart_printf("Failed to configure station.\n");
+		DEBUG("exit start_station");
 		return -1;
 	}
 
 	if (!wifi_station_connect()) {
 		ets_uart_printf("Failed to connect to router.\n");
+		DEBUG("exit start_station");
 		return -1;
 	}
 
+	DEBUG("exit start_station");
 	return 0;
 }
 
 int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password, uint8 channel)
 {
+	DEBUG("enter start_access_point");
 	struct softap_config config;
 	ets_uart_printf("Starting access point\n");
 
 	/* Set access point mode */
 	if (!wifi_set_opmode(SOFTAP_MODE)) {
 		ets_uart_printf("Failed to set as access point mode.\n");
+		DEBUG("exit start_access_point");
 		return -1;
 	}
 
@@ -62,9 +71,11 @@ int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password,
 
 	if (!wifi_softap_set_config(&config)) {
 		ets_uart_printf("Failed to configure access point.\n");
+		DEBUG("exit start_access_point");
 		return -1;
 	}
 
+	DEBUG("exit start_access_point");
 	return 0;
 }
 
@@ -73,11 +84,14 @@ int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password,
    and get into a restart loop. */
 static void ICACHE_FLASH_ATTR empty_wifi_handler(System_Event_t *event)
 {
+	DEBUG("enter empty_wifi_handler");
 	ets_uart_printf("Empty wifi event handler: event = %d\n", event->event);
+	DEBUG("exit empty_wifi_handler");
 }
 
 void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 {
+	DEBUG("enter sta_wifi_handler");
 	struct ip_info info;
 	
 	switch (event->event) {
@@ -135,6 +149,7 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 					 ets_uart_printf("Failed to disconnect.\n");
 	
 				wifi_set_event_handler_cb(empty_wifi_handler);
+				DEBUG("exit sta_wifi_handler (restart)");
 				system_restart();
 			}
 
@@ -165,4 +180,6 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			ets_uart_printf("Got event: %d\n", event->event);
 			break;
 	}
+
+	DEBUG("exit sta_wifi_handler");
 }

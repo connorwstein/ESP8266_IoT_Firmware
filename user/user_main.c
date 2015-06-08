@@ -5,14 +5,18 @@
 
 #include "ap_server.h"
 #include "device_config.h"
+#include "network_cmds.h"
 #include "helper.h"
 #include "wifi.h"
+
+#include "debug.h"
 
 bool HAS_BEEN_CONNECTED_AS_STATION;
 bool HAS_RECEIVED_CONNECT_INSTRUCTION;
 
 void ICACHE_FLASH_ATTR init_done()
 {
+	DEBUG("enter init_done");
 	const char *opmodes[] = {"NONE", "STATION_MODE", "SOFTAP_MODE", "STATIONAP_MODE"};
 	struct softap_config config;
 	struct ip_info info;
@@ -21,8 +25,10 @@ void ICACHE_FLASH_ATTR init_done()
 
 	opmode = wifi_get_opmode();
 
-	if (opmode != SOFTAP_MODE)
+	if (opmode != SOFTAP_MODE) {
+		DEBUG("exit init_done");
 		return;
+	}
 
 	ets_uart_printf("Current Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
 
@@ -49,29 +55,25 @@ void ICACHE_FLASH_ATTR init_done()
 
 	if (ap_server_init() != 0)
 		ets_uart_printf("Failed to initialize ap server.\n");
+
+	DEBUG("exit init_done");
 }
 
 void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg)
 {
-	char ssid[32];
-	char password[64] = DEFAULT_AP_PASSWORD;
-	uint8 channel = DEFAULT_AP_CHANNEL;
-
-	generate_default_ssid(ssid, sizeof ssid);
+	DEBUG("enter wifi_timer_cb");
 
 	if (!HAS_BEEN_CONNECTED_AS_STATION) {
-		ets_uart_printf("Auto connect wifi timeout\n");
-		wifi_set_opmode(SOFTAP_MODE);
-
-		if (start_access_point(ssid, password, channel) != 0)
-			ets_uart_printf("Failed to start access point.\n");
-
-		init_done();		
+		ets_uart_printf("wifi timer timeout\n");
+		go_back_to_ap(NULL);
 	}
+
+	DEBUG("exit wifi_timer_cb");
 }
 
 void ICACHE_FLASH_ATTR user_init()
 {
+	DEBUG("enter user_init");
 	static ETSTimer wifi_connect_timer;
 
 	// system_restore();
@@ -107,4 +109,5 @@ void ICACHE_FLASH_ATTR user_init()
 
 	os_timer_setfn(&wifi_connect_timer, wifi_timer_cb, NULL);
 	os_timer_arm(&wifi_connect_timer, AUTO_CONNECT_TIMEOUT, false); 
+	DEBUG("exit user_init");
 }

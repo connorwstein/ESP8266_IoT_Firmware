@@ -6,10 +6,15 @@
 #include "helper.h"
 #include "network_cmds.h"
 #include "device_config.h"
+
 #include "temperature.h"
+#include "lighting.h"
+
+#include "debug.h"
 
 void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 {
+	DEBUG("enter parser_process_data");
 	struct DeviceConfig config;
 	char *cmd = data;
 	char *params = separate(data, ':');
@@ -18,9 +23,15 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 		char *ssid = params;
 		char *password = separate(params, ';');
 		connect_to_network(ssid, password, (struct espconn *)arg);
+		DEBUG("exit parser_process_data");
+		return;
+	} else if (os_strcmp(cmd, "Run AP") == 0) {
+		go_back_to_ap((struct espconn *)arg);
+		DEBUG("exit parser_process_data");
 		return;
 	} else if (os_strcmp(cmd, "Name") == 0) {
 		DeviceConfig_set_name(params);
+		DEBUG("exit parser_process_data");
 		return;
 	} else if (os_strcmp(cmd, "Type") == 0) {
 		if (os_strcmp(params, "Temperature") == 0)
@@ -30,14 +41,18 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 		else if (os_strcmp(params, "Lighting") == 0)
 			DeviceConfig_set_type(LIGHTING);
 
+		DEBUG("exit parser_process_data");
 		return;
 	}
 
-	if (!DeviceConfig_already_exists())
+	if (!DeviceConfig_already_exists()) {
+		DEBUG("exit parser_process_data");
 		return;
+	}
 
 	if (DeviceConfig_read_config(&config) != 0) {
 		ets_uart_printf("Failed to read config.\n");
+		DEBUG("exit parser_process_data");
 		return;
 	}
 
@@ -56,6 +71,10 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 
 			break;
 		case LIGHTING:
+			if (os_strcmp(cmd, "Lighting Get") == 0)
+				Lighting_get_light((struct espconn *)arg);
+			else if (os_strcmp(cmd, "Lighting Set") == 0)
+				Lighting_toggle_light();
 			if (os_strcmp(cmd, "Hello Lighting Devices?") == 0)
 				udp_send_ipmac((struct espconn *)arg);
 
@@ -65,4 +84,5 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 	}
 
 	DeviceConfig_delete(&config);
+	DEBUG("exit parser_process_data");
 }

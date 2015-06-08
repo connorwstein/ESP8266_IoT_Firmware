@@ -9,8 +9,13 @@
 #include "device_config.h"
 #include "parser.h"
 
+#include "debug.h"
+
+struct espconn *sta_server_conn = NULL;
+
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
+	DEBUG("enter sta_tcpserver_recv_cb");
 	uint32 remote_ip;
 	int remote_port;
 
@@ -24,10 +29,12 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsi
 	ets_uart_printf("\n");
 
 	parser_process_data(pdata, arg);
+	DEBUG("exit sta_tcserver_recv_cb");
 }
 
 static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
+	DEBUG("enter sta_udpserver_recv_cb");
 	uint32 remote_ip;
 	int remote_port;
 	struct DeviceConfig conf;
@@ -43,10 +50,12 @@ static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsi
 	ets_uart_printf("\n");
 
 	parser_process_data(pdata, arg);
+	DEBUG("exit sta_udpserver_recv_cb");
 }
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 {
+	DEBUG("enter sta_tcpserver_sent_cb");
 	uint32 remote_ip;
 	int remote_port;
 
@@ -56,10 +65,12 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 	ets_uart_printf("Sent data to %s:%d!\n",
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
+	DEBUG("exit sta_tcpserver_sent_cb");
 }
 
 static void ICACHE_FLASH_ATTR sta_udpserver_sent_cb(void *arg)
 {
+	DEBUG("enter sta_udpserver_sent_cb");
 	uint32 remote_ip;
 	int remote_port;
 
@@ -69,10 +80,12 @@ static void ICACHE_FLASH_ATTR sta_udpserver_sent_cb(void *arg)
 	ets_uart_printf("Sent data to %s:%d!\n",
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
+	DEBUG("exit sta_udpserver_sent_cb");
 }
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_connect_cb(void *arg)
 {
+	DEBUG("enter sta_tcpserver_connect_cb");
 	uint32 remote_ip;
 	int remote_port;
 
@@ -82,16 +95,20 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_connect_cb(void *arg)
 	ets_uart_printf("New connection from %s:%d!\n",
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
+	DEBUG("exit sta_tcpserver_connect_cb");
 }
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_reconnect_cb(void *arg, sint8 err)
 {
+	DEBUG("enter sta_tcpserver_reconnect_cb");
 	ets_uart_printf("Reconnect: err = %d\n", err);
 	ets_uart_printf("\n");
+	DEBUG("exit sta_tcpserver_reconnect_cb");
 }
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_disconnect_cb(void *arg)
 {
+	DEBUG("enter sta_tcpserver_disconnect_cb");
 	uint32 remote_ip;
 	int remote_port;
 
@@ -102,16 +119,20 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_disconnect_cb(void *arg)
 	ets_uart_printf("%s:%d has disconnected!\n",
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
+	DEBUG("exit sta_tcpserver_disconnect_cb");
 }
 
 int ICACHE_FLASH_ATTR sta_server_init_tcp()
 {
+	DEBUG("enter sta_server_init_tcp");
 	static struct ip_info info;
 	static struct espconn server_conn_sta;
 	static esp_tcp server_tcp_sta;
+	int rc;
 
 	if (!wifi_get_ip_info(STATION_IF, &info)) {
 		ets_uart_printf("Failed to get ip info.\n");
+		DEBUG("exit sta_server_init_tcp");
 		return -1;
 	}
 
@@ -123,26 +144,31 @@ int ICACHE_FLASH_ATTR sta_server_init_tcp()
 
 	if (espconn_regist_sentcb(&server_conn_sta, sta_tcpserver_sent_cb) != 0) {
 		ets_uart_printf("Failed to register sent callback.\n");
+		DEBUG("exit sta_server_init_tcp");
 		return -1;
 	}
 
 	if (espconn_regist_recvcb(&server_conn_sta, sta_tcpserver_recv_cb) != 0) {
 		ets_uart_printf("Failed to register recv callback.\n");
+		DEBUG("exit sta_server_init_tcp");
 		return -1;
 	}
 
 	if (espconn_regist_connectcb(&server_conn_sta, sta_tcpserver_connect_cb) != 0) {
 		ets_uart_printf("Failed to register connect callback.\n");
+		DEBUG("exit sta_server_init_tcp");
 		return -1;
 	}
 
 	if (espconn_regist_reconcb(&server_conn_sta, sta_tcpserver_reconnect_cb) != 0) {
 		ets_uart_printf("Failed to register reconnect callback.\n");
+		DEBUG("exit sta_server_init_tcp");
 		return -1;
 	}
 
 	if (espconn_regist_disconcb(&server_conn_sta, sta_tcpserver_disconnect_cb) != 0) {
 		ets_uart_printf("Failed to register disconnect callback.\n");
+		DEBUG("exit sta_server_init_tcp");
 		return -1;
 	}
 
@@ -150,35 +176,41 @@ int ICACHE_FLASH_ATTR sta_server_init_tcp()
 	server_conn_sta.reverse = NULL;
 	
 	espconn_disconnect(&server_conn_sta);
-	int rc;
+
 	if ((rc = espconn_accept(&server_conn_sta)) != 0) {
 		if (rc == ESPCONN_ISCONN) {
-			ets_uart_printf("Already connected.\n");
-			return 0;
+			ets_uart_printf("Station mode TCP server already connected.\n");
+		} else {
+			ets_uart_printf("Failed to accept. %d\n", rc);
+			DEBUG("exit sta_server_init_tcp");
+			return -1;
 		}
-
-		ets_uart_printf("Failed to accept. %d\n", rc);
-		return -1;
+	} else {
+		/* Set to 0 for unlimited TCP connection time (no timeout) */
+		if (espconn_regist_time(&server_conn_sta, 0, 0) != 0) {
+			ets_uart_printf("Failed to set timeout interval.\n");
+			DEBUG("exit sta_server_init_tcp");
+			return -1;
+		}
 	}
 
-	/* Set to 0 for unlimited TCP connection time (no timeout) */
-	if (espconn_regist_time(&server_conn_sta, 0, 0) != 0) {
-		ets_uart_printf("Failed to set timeout interval.\n");
-		return -1;
-	}
-
+	sta_server_conn = &server_conn_sta;
 	ets_uart_printf("Successfully initialized station mode TCP server.\n\n");
+	DEBUG("exit sta_server_init_tcp");
 	return 0;
 }
 
 int ICACHE_FLASH_ATTR sta_server_init_udp()
 {
+	DEBUG("enter sta_server_init_udp");
 	static struct ip_info info;
 	static struct espconn server_conn_sta;
 	static esp_udp server_udp_sta;
+	int rc;
 
 	if (!wifi_get_ip_info(STATION_IF, &info)) {
 		ets_uart_printf("Failed to get ip info.\n");
+		DEBUG("exit sta_server_init_udp");
 		return -1;
 	}
 
@@ -193,19 +225,27 @@ int ICACHE_FLASH_ATTR sta_server_init_udp()
 
 	if (espconn_regist_sentcb(&server_conn_sta, sta_udpserver_sent_cb) != 0) {
 		ets_uart_printf("Failed to register sent callback.\n");
+		DEBUG("exit sta_server_init_udp");
 		return -1;
 	}
 
 	if (espconn_regist_recvcb(&server_conn_sta, sta_udpserver_recv_cb) != 0) {
 		ets_uart_printf("Failed to register recv callback.\n");
+		DEBUG("exit sta_server_init_udp");
 		return -1;
 	}
 
-	if (espconn_create(&server_conn_sta) != 0) {
-		ets_uart_printf("Failed to create udp server.\n");
-		return -1;
+	if ((rc = espconn_create(&server_conn_sta)) != 0) {
+		if (rc == ESPCONN_ISCONN) {
+			ets_uart_printf("Station mode UDP server already connected.\n");
+		} else {
+			ets_uart_printf("Failed to create udp server.\n");
+			DEBUG("exit sta_server_init_udp");
+			return -1;
+		}
 	}
 
 	ets_uart_printf("Successfully initialized station mode UDP server.\n\n");
+	DEBUG("exit sta_server_init_udp");
 	return 0;
 }
