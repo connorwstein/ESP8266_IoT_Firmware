@@ -1,24 +1,13 @@
-#include "ets_sys.h"
+#include "c_types.h"
 #include "osapi.h"
-#include "os_type.h"
 #include "ip_addr.h"
 #include "espconn.h"
 #include "user_interface.h"
-#include "user_config.h"
 
-#include "helper.h"
 #include "ap_server.h"
-
-#define BROADCAST_RESPONSE_BUF_SIZE 100
-#define MAC_ADDRESS_BYTES 6
-
-extern int TEMPERATURE;
-
-static void ICACHE_FLASH_ATTR tcp_set_temperature(char *pdata)
-{
-	TEMPERATURE = atoi(pdata);
-	ets_uart_printf("Set TEMPERATURE to %d\n", TEMPERATURE);
-}
+#include "helper.h"
+#include "device_config.h"
+#include "parser.h"
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
@@ -34,52 +23,15 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsi
 	ets_uart_printf("%s\n", pdata);
 	ets_uart_printf("\n");
 
-	if (strncmp(pdata, "Temperature Set:", strlen("Temperature Set:")) == 0) {
-		ets_uart_printf("Received request to set temperature!\n");
-		tcp_set_temperature(pdata + strlen("Temperature Set:"));
-	}
-}
-
-static void ICACHE_FLASH_ATTR udp_send_ipmac(void *arg)
-{
-	struct ip_info info;
-	struct DeviceConfig conf;
-	uint8 *ipaddress;
-	uint8 mac[6];
-	char buff[BROADCAST_RESPONSE_BUF_SIZE];
-
-	if (!wifi_get_ip_info(STATION_IF, &info)) {
-		ets_uart_printf("Unable to get ip address of station\n");
-		return;
-	}
-
-	ipaddress = (uint8 *)inet_ntoa(info.ip.addr);
-
-	if (!wifi_get_macaddr(STATION_IF, mac)) {
-		ets_uart_printf("Failed to get MAC address.\n");
-		return;
-	}
-
-	if (read_device_config(&conf) != 0) {
-		ets_uart_printf("Failed to read device config.\n");
-		return;
-	}
-
-	os_memset(buff, 0, sizeof buff);
-	os_sprintf(buff, "NAME:%s IP:%s MAC:%s", conf.device_name, inet_ntoa(info.ip.addr), str_mac(mac));
-	ets_uart_printf("Sending my NAME, IP and MAC address: %s\n", buff);
-
-	if (espconn_sent((struct espconn *)arg, (uint8 *)buff, strlen(buff)) != 0)
-		ets_uart_printf("espconn_sent failed.\n");
+	parser_process_data(pdata, arg);
 }
 
 static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
 	uint32 remote_ip;
 	int remote_port;
-	static ETSTimer ptimer;
 	struct DeviceConfig conf;
-	char command_buf[sizeof "Hello " + sizeof conf.device_type + sizeof " Devices?"];
+	char command_buf[sizeof "Hello " + sizeof conf.type + sizeof " Devices?"];
 
 	ets_uart_printf("sta_udpserver_recv_cb\n");
 	remote_port = ((struct espconn *)arg)->proto.tcp->remote_port;
@@ -90,17 +42,7 @@ static void ICACHE_FLASH_ATTR sta_udpserver_recv_cb(void *arg, char *pdata, unsi
 	ets_uart_printf("%s\n", pdata);
 	ets_uart_printf("\n");
 
-	if (read_device_config(&conf) != 0) {
-		ets_uart_printf("Failed to read device config.");
-		return;
-	}
-
-	os_sprintf(command_buf, "Hello %s Devices?", conf.device_type);
-
-	if (strcmp(pdata, command_buf) == 0) {
-		ets_uart_printf("Received HELLO request for NAME, IP and MAC address!\n");
-		udp_send_ipmac(arg);
-	}
+	parser_process_data(pdata, arg);
 }
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
@@ -207,11 +149,19 @@ int ICACHE_FLASH_ATTR sta_server_init_tcp()
 	server_conn_sta.link_cnt = 0;
 	server_conn_sta.reverse = NULL;
 	
-	if (espconn_accept(&server_conn_sta) != 0) {
-		ets_uart_printf("Failed to accept.\n");
+	espconn_disconnect(&server_conn_sta);
+	int rc;
+	if ((rc = espconn_accept(&server_conn_sta)) != 0) {
+		if (rc == ESPCONN_ISCONN) {
+			ets_uart_printf("Already connected.\n");
+			return 0;
+		}
+
+		ets_uart_printf("Failed to accept. %d\n", rc);
 		return -1;
 	}
 
+	/* Set to 0 for unlimited TCP connection time (no timeout) */
 	if (espconn_regist_time(&server_conn_sta, 0, 0) != 0) {
 		ets_uart_printf("Failed to set timeout interval.\n");
 		return -1;

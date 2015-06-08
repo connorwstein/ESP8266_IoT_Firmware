@@ -1,19 +1,15 @@
-#include "ets_sys.h"
+#include "c_types.h"
 #include "osapi.h"
-#include "os_type.h"
-#include "ip_addr.h"
-#include "espconn.h"
+#include "ets_sys.h"
 #include "user_interface.h"
-#include "user_config.h"
 
-#include "sta_server.h"
 #include "ap_server.h"
+#include "device_config.h"
 #include "helper.h"
+#include "wifi.h"
 
 bool HAS_BEEN_CONNECTED_AS_STATION;
 bool HAS_RECEIVED_CONNECT_INSTRUCTION;
-
-int TEMPERATURE;
 
 void ICACHE_FLASH_ATTR init_done()
 {
@@ -78,7 +74,7 @@ void ICACHE_FLASH_ATTR user_init()
 {
 	static ETSTimer wifi_connect_timer;
 
-//	system_restore();
+	// system_restore();
 	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
 	ets_uart_printf("\n\n\n");
@@ -86,15 +82,17 @@ void ICACHE_FLASH_ATTR user_init()
 	HAS_RECEIVED_CONNECT_INSTRUCTION = false;
 	HAS_BEEN_CONNECTED_AS_STATION = false;
 
-	if (is_flash_used()) {
+	if (DeviceConfig_already_exists()) {
 		struct DeviceConfig conf;
 
-		if (read_device_config(&conf) != 0) {
+		if (DeviceConfig_read_config(&conf) != 0) {
 			ets_uart_printf("Failed to read device config.\n");
 		} else {
-			ets_uart_printf("Current device config: device_name = %s, device_type = %s\n",
-					conf.device_name, conf.device_type);
+			ets_uart_printf("Current device config: device_name = %s, device_type = %d\n",
+					conf.name, conf.type);
 		}
+
+		DeviceConfig_delete(&conf);
 	} else {
 		ets_uart_printf("This device has not yet been configured.\n");
 	}
