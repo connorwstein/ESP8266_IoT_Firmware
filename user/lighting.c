@@ -25,6 +25,7 @@ void ICACHE_FLASH_ATTR Lighting_get_light(struct espconn *conn)
 	DEBUG("enter Lighting_get_light");
 	char buff[5];
 
+	memset(buff, 0, sizeof buff);
 	os_sprintf(buff, "%s", state == LIGHT_OFF ? "OFF" : "ON");
 
 	if (espconn_sent(conn, (uint8 *)buff, os_strlen(buff)) != 0)
