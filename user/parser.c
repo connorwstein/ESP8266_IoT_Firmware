@@ -12,12 +12,21 @@
 
 #include "debug.h"
 
+static void ICACHE_FLASH_ATTR send_reply(char *data, struct espconn *conn)
+{
+	ets_uart_printf("Sending reply: %s\n", data);
+	
+	if (espconn_sent(conn, (uint8 *)data, os_strlen(data)) != ESPCONN_OK)
+		ets_uart_printf("Failed to send reply.\n");
+}
+
 void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 {
 	DEBUG("enter parser_process_data");
 	struct DeviceConfig config;
 	char *cmd = data;
 	char *params = separate(data, ':');
+	int rc = -1;
 
 	if (os_strcmp(cmd, "Connect") == 0) {
 		char *ssid = params;
@@ -30,16 +39,25 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 		DEBUG("exit parser_process_data");
 		return;
 	} else if (os_strcmp(cmd, "Name") == 0) {
-		DeviceConfig_set_name(params);
+		if (DeviceConfig_set_name(params) != 0)
+			send_reply("Failed", (struct espconn *)arg);
+		else
+			send_reply("Name Set", (struct espconn *)arg);
+
 		DEBUG("exit parser_process_data");
 		return;
 	} else if (os_strcmp(cmd, "Type") == 0) {
 		if (os_strcmp(params, "Temperature") == 0)
-			DeviceConfig_set_type(TEMPERATURE);
+			rc = DeviceConfig_set_type(TEMPERATURE);
 		else if (os_strcmp(params, "Thermostat") == 0)
-			DeviceConfig_set_type(THERMOSTAT);
+			rc = DeviceConfig_set_type(THERMOSTAT);
 		else if (os_strcmp(params, "Lighting") == 0)
-			DeviceConfig_set_type(LIGHTING);
+			rc = DeviceConfig_set_type(LIGHTING);
+
+		if (rc != 0)
+			send_reply("Failed", (struct espconn *)arg);
+		else
+			send_reply("Type Set", (struct espconn *)arg);
 
 		DEBUG("exit parser_process_data");
 		return;
