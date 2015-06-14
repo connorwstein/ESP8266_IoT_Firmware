@@ -13,7 +13,7 @@
 
 ETSTimer timer;
 
-/* function that sends "\xde\xad\xbe\xefHELLO WORLD!" as raw packet
+/* function that send the raw packet.
    Note: the actual packet sent over the air may be longer because
    the driver functions seem to allocate memory for the whole IEEE-802.11
    header even if the packet is shorter...
