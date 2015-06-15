@@ -14,6 +14,8 @@
 #define SOFTAP_IF	0x01
 #define SOFTAP_MODE	0x02
 
+static int count=0;
+
 ETSTimer timer;
 
 /* function that send the raw packet.
@@ -43,10 +45,9 @@ void ICACHE_FLASH_ATTR my_recv_cb(struct RxPacket *pkt)
 	uint16 i, j;
 
 	len = pkt->rx_ctl.legacy_length;
-	ets_uart_printf("Recv callback: %d bytes\n", len);
-
+	ets_uart_printf("Recv callback: %d bytes, %d Channel: %d PHY: %d\n", len, count,pkt->rx_ctl.channel, wifi_get_phy_mode());
+	count++;
 	i = 0;
-
 	while (i < len / 16) {
 		ets_uart_printf("0x%04x: ", i);
 
@@ -99,8 +100,12 @@ void ICACHE_FLASH_ATTR my_recv_cb(struct RxPacket *pkt)
 
 void ICACHE_FLASH_ATTR init_done()
 {
-	int i;
-
+	//Note that it is impossible to see all packets
+	//on all channels and physical modes
+	//Select a phy 80211 b/g/n/a etc. and a channel 
+	//in order to receive packets
+	wifi_set_channel(6);
+	wifi_set_phy_mode(2);
 	os_timer_disarm(&timer);
 	os_timer_setfn(&timer, send_paket, NULL);
 	os_timer_arm(&timer, 500, 1);
