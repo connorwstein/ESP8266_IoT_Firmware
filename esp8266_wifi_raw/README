@@ -1,7 +1,8 @@
-This is an experiment attempting to send raw IEEE-802.11 packets from the ESP8266.
+This is an experiment attempting to send and receive raw IEEE-802.11 packets from the ESP8266.
 
 This is currently a dirty hack, and not quite perfect.
 
+SENDING:
 Currently, one can set the bytes 0, 1, and 4, 5, ..., etc of the frame to any arbitrary value.
 But the bytes 2 and 3 (Duration ID in a normal IEEE-802.11 frame) are somehow overwritten
 by the lower level driver functions, and appear to be always zero.
@@ -14,6 +15,13 @@ our actual buffer is shorter... But I do not yet understand what goes on below.
 Another issue is that the method only works when the ESP is in SOFTAP_MODE.
 In STATION_MODE, the eagle_lwip_getif function may crash, or the ieee80211_output_pbuf function
 may return an error. I don't know why.
+
+
+RECEIVING:
+The method currently allows the device to enter in monitor mode, and sniff every packet
+that can be found in the air, including control and management frames. There are no
+limitations on the packet size as in the official sniffer APIs. You have access to
+the complete frame.
 
 
 This can be thought of as a proof of concept, but there is still
