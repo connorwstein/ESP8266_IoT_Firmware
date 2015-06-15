@@ -26,21 +26,26 @@ static wifi_raw_recv_cb_fn rx_func = NULL;
    ICACHE_FLASH_ATTR stores it in a slower-to-access location... */
 void aaEnqueueRxq(void *a)
 {
-/*	int i;
+	// int i;
+	// for (i = 0; i < 30; i++){
+	// 	ets_uart_printf("%p ", ((void **)a)[i]);
+	// 	if((uint32)((void**)a)[i]>0x30000000){
+	// 		ets_uart_printf("Pointer greater than 0x30000000:\n");
+	// 		int j;
+	// 		for (j = 0; j < 100; j++){
+	// 			ets_uart_printf("%02x ", ((uint8 **)a)[i][j]);
+	// 		}
+	// 		ets_uart_printf("\n\n");
+	// 	}
+	// }
+	if(rx_func==NULL){
+		ets_uart_printf("Rx func is null\n");
+	}
 
-	for (i = 0; i < 10; i++)
-		ets_uart_printf("%p ", ((void **)a)[i]);
-
-	ets_uart_printf("\n");
-
-	for (i = 0; i < 100; i++)
-		ets_uart_printf("%02x ", ((uint8 **)a)[4][i]);
-
-	ets_uart_printf("\n\n");
-*/
 	if (rx_func)
-		rx_func((struct RxPacket *)(((void **)a)[4]));
-
+		//4 is the only spot that contained the packets
+		//Discovered by trial and error printing the data
+		rx_func((struct RxPacket *)(((void **)a)[4])); 
 	ppEnqueueRxq(a);
 }
 
@@ -57,7 +62,7 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 	    just behave exactly like ppTxPkt. */
 	/* this might need a mutex... */
 	if (!called) {
-		ppTxPkt(buf);
+		ppTxPkt(buf); //library function call normally without our interception
 		return;
 	}
 
@@ -80,60 +85,27 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 
 		/* Need to be in SOFTAP_MODE wifi opmode, otherwise this fails! */
 		ifp = (struct netif *)eagle_lwip_getif(SOFTAP_IF);
-//		ifp = (struct netif *)eagle_lwip_if_alloc(
 		pb = pbuf_alloc(PBUF_LINK, alloc_len, PBUF_RAM);
-
 		pbuf_take(pb, header, alloc_len);
 		upper_buf = buf;
 		upper_len = len;
 
 		level = 1;
 
-		/* Go down one level into ieee80211_output_pbuf. */
+		/* Go down one level into ieee80211_output_pbuf. 
+		ieee80211_output_pbuf calls aaTxPkt because the libnet80211_2 has all references to
+		ppTxPkt modified to our aaTxPkt instead*/
 		if (ieee80211_output_pbuf(ifp, pb))
 			ets_uart_printf("Failed.\n");
-//		else
-//			ets_uart_printf("Success!\n");
-
 		level = 0;
-
 		pbuf_free(pb);
+
 	} else {
 		/* Got to level 1. This gets called by ieee80211_output_pbuf,
 		                   and now the parameters are prepared in the
 				   format expected by ppTxPkt. Just modify
 				   the packet data in the appropriate memory addresses. */
-//		int i;
 
-		/* Some debugging stuff... */
-
-/*		for (i = 0; i < 10; i++)
-			ets_uart_printf("%p ", ((uint8 **)buf)[i]);
-
-		ets_uart_printf("\n\n");
-
-		for (i = 0; i < 100; i++)
-			ets_uart_printf("%02x ", ((uint8 **)buf)[0][i]);
-
-		ets_uart_printf("\n\n");
-
-		for (i = 0; i < 100; i++)
-			ets_uart_printf("%02x ", ((uint8 **)buf)[1][i]);
-
-		ets_uart_printf("\n\n");
-
-		for (i = 0; i < 100; i++)
-			ets_uart_printf("%02x ", ((uint8 **)buf)[4][i]);
-
-		ets_uart_printf("\n\n");
-
-		for (i = 0; i < 100; i++)
-			ets_uart_printf("%02x ", ((uint8 **)buf)[9][i]);
-
-		ets_uart_printf("\n\n");
-*/
-//		((uint16 **)buf)[0][4] = upper_len;	/* this doesn't really do anything, though... */
-//		((uint16 **)buf)[0][5] = upper_len;	/* this doesn't really do anything, though... */
 		memcpy(((uint8 **)buf)[4], upper_buf, upper_len);
 		ppTxPkt(buf);
 	}
@@ -147,20 +119,25 @@ void ICACHE_FLASH_ATTR wifi_raw_set_recv_cb(wifi_raw_recv_cb_fn rx_fn)
 /* wrapper around aaTxPkt */
 void ICACHE_FLASH_ATTR wifi_send_raw_packet(void *data, uint16 len)
 {
+	//Save recv function to avoid sending and receiving at the exact same time
 	wifi_raw_recv_cb_fn recv_func = rx_func;
-	uint8 mode;
-
 	rx_func = NULL;
 
 	/* Save current opmode and switch to SOFTAP_MODE */
+	uint8 mode;
 	mode = wifi_get_opmode();
+	//Need softap mode in order to send 
 	wifi_set_opmode(SOFTAP_MODE);
 
 	/* this also needs a mutex */
+	//pptx packet could get called by something other than 
+	//our send packet function
 	called = 1;
-	aaTxPkt(data, len);
+	aaTxPkt(data, len); //sending a raw packet with data, length
 	called = 0;
 
+	//Restoring previous opmode 
 	wifi_set_opmode(mode);
+	//Restoring rx_func after sending
 	rx_func = recv_func;
 }
