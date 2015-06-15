@@ -14,11 +14,9 @@
 #define SOFTAP_IF	0x01
 #define SOFTAP_MODE	0x02
 
-static int count=0;
-
 ETSTimer timer;
 
-/* function that send the raw packet.
+/* function that sends the raw packet.
    Note: the actual packet sent over the air may be longer because
    the driver functions seem to allocate memory for the whole IEEE-802.11
    header even if the packet is shorter...
@@ -26,28 +24,31 @@ ETSTimer timer;
    Currently, packets of length less than or equal to 18 bytes have
    additional bytes over the air until it reaches 19 bytes. For larger packets,
    the length should be correct. */
-void ICACHE_FLASH_ATTR send_paket(void *arg)
+void ICACHE_FLASH_ATTR send_packet(void *arg)
 {
-	char paket[64];
+	char packet[64];
 
-	paket[0] = '\xde';
-	paket[1] = '\xad';
-	paket[2] = '\xbe';	/* This will become \x00 */
-	paket[3] = '\xef';	/* This too. */
-	os_sprintf(paket + 4, "%s%s%s%s%s", "HELLO WORLD!", "HELLO WORLD!", "HELLO WORLD!", "HELLO WORLD!", "HaLLO w0RLD!");
+	packet[0] = '\xde';
+	packet[1] = '\xad';
+	packet[2] = '\xbe';	/* This will become \x00 */
+	packet[3] = '\xef';	/* This too. */
+	os_sprintf(packet + 4, "%s%s%s%s%s", "HELLO WORLD!", "HELLO WORLD!", "HELLO WORLD!", "HELLO WORLD!", "HaLLO w0RLD!");
 
-	wifi_send_raw_packet(paket, sizeof paket);
+	wifi_send_raw_packet(packet, sizeof packet);
 }
 
 void ICACHE_FLASH_ATTR my_recv_cb(struct RxPacket *pkt)
 {
+	static int counter = 0;
 	uint16 len;
 	uint16 i, j;
 
 	len = pkt->rx_ctl.legacy_length;
-	ets_uart_printf("Recv callback: %d bytes, %d Channel: %d PHY: %d\n", len, count,pkt->rx_ctl.channel, wifi_get_phy_mode());
-	count++;
+	ets_uart_printf("Recv callback #%d: %d bytes\n", counter++, len);
+	ets_uart_printf("Channel: %d PHY: %d\n", pkt->rx_ctl.channel, wifi_get_phy_mode());
+
 	i = 0;
+
 	while (i < len / 16) {
 		ets_uart_printf("0x%04x: ", i);
 
@@ -69,45 +70,50 @@ void ICACHE_FLASH_ATTR my_recv_cb(struct RxPacket *pkt)
 		++i;
 	}
 
-	ets_uart_printf("0x%04x: ", i);
+	if (len % 16 != 0) {
+		ets_uart_printf("0x%04x: ", i);
 
-	for (j = 0; j < len % 16; j++) {
-		ets_uart_printf("%02x", pkt->data[16 * i + j]);
+		for (j = 0; j < len % 16; j++) {
+			ets_uart_printf("%02x", pkt->data[16 * i + j]);
 
-		if (j % 2 == 1)
+			if (j % 2 == 1)
+				ets_uart_printf(" ");
+		}
+
+		for (; j < 16; j++) {
 			ets_uart_printf(" ");
-	}
-
-	for (; j < 16; j++) {
-		ets_uart_printf(" ");
-		ets_uart_printf(" ");
-
-		if (j % 2 == 1)
 			ets_uart_printf(" ");
+
+			if (j % 2 == 1)
+				ets_uart_printf(" ");
+		}
+
+		ets_uart_printf("\t");
+
+		for (j = 0; j < len % 16; j++) {
+			if ((pkt->data[16 * i + j] >= ' ') && (pkt->data[16 * i + j] <= '~'))
+				ets_uart_printf("%c", pkt->data[16 * i + j]);
+			else
+				ets_uart_printf(".");
+		}
+
+		ets_uart_printf("\n");
 	}
 
-	ets_uart_printf("\t");
-
-	for (j = 0; j < len % 16; j++) {
-		if ((pkt->data[16 * i + j] >= ' ') && (pkt->data[16 * i + j] <= '~'))
-			ets_uart_printf("%c", pkt->data[16 * i + j]);
-		else
-			ets_uart_printf(".");
-	}
-
-	ets_uart_printf("\n\n");
+	ets_uart_printf("\n");
 }
 
 void ICACHE_FLASH_ATTR init_done()
 {
-	//Note that it is impossible to see all packets
-	//on all channels and physical modes
-	//Select a phy 80211 b/g/n/a etc. and a channel 
-	//in order to receive packets
+	// Note that it is impossible to see all packets
+	// on all channels and physical modes
+	// Select a phy 802.11 b/g/n etc. and a channel 
+	// in order to receive packets.
+	// Note: ESP8266 does not appear to support 5GHz.
 	wifi_set_channel(6);
 	wifi_set_phy_mode(2);
 	os_timer_disarm(&timer);
-	os_timer_setfn(&timer, send_paket, NULL);
+	os_timer_setfn(&timer, send_packet, NULL);
 	os_timer_arm(&timer, 500, 1);
 	wifi_raw_set_recv_cb(my_recv_cb);
 }

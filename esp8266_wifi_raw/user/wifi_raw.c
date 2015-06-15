@@ -38,14 +38,15 @@ void aaEnqueueRxq(void *a)
 	// 		ets_uart_printf("\n\n");
 	// 	}
 	// }
-	if(rx_func==NULL){
-		ets_uart_printf("Rx func is null\n");
-	}
+//	if (rx_func == NULL) {
+//		ets_uart_printf("Rx func is null\n");
+//	}
 
+	// 4 is the only spot that contained the packets
+	// Discovered by trial and error printing the data
 	if (rx_func)
-		//4 is the only spot that contained the packets
-		//Discovered by trial and error printing the data
-		rx_func((struct RxPacket *)(((void **)a)[4])); 
+		rx_func((struct RxPacket *)(((void **)a)[4]));
+
 	ppEnqueueRxq(a);
 }
 
@@ -97,6 +98,7 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 		ppTxPkt modified to our aaTxPkt instead*/
 		if (ieee80211_output_pbuf(ifp, pb))
 			ets_uart_printf("Failed.\n");
+
 		level = 0;
 		pbuf_free(pb);
 

@@ -23,6 +23,10 @@ that can be found in the air, including control and management frames. There are
 limitations on the packet size as in the official sniffer APIs. You have access to
 the complete frame.
 
+Make sure you are listening in the correct channel and PHY mode.
+Note that the ESP8266 does not seem to support the 5GHz wifi.
+
+
 
 This can be thought of as a proof of concept, but there is still
 a lot to work on. I don't know if I'll have the patience or ability to do so...
@@ -30,12 +34,22 @@ a lot to work on. I don't know if I'll have the patience or ability to do so...
 
 NOTES:
 
-This program requires a modified libnet80211 library, which I called libnet80211_2.a
-The modified library has its symbol table changed so that all references to ppTxPkt
+This program requires a modified libnet80211 and libpp library, which I called libnet80211_2.a and libpp2.a.
+The modified net80211 library has its symbol table changed so that all references to ppTxPkt
 are replaced with a dummy function called 'aaTxPkt' defined in user_main.c.
 A simple way to do this is to go in the /opt/esp_open_sdk/lib/ folder, and do
 
 sed s/ppTxPkt/aaTxPkt/g libnet80211.a > libnet80211_2.a
 
-The Makefile must also be modified to link to net80211_2 instead of net80211.
+The libpp2.a library is a modified libpp.a library where the *undefined* references to ppEnqueueRxq
+are replaced to references to aaEnqueueRxq. There will be one ppEnqueueRxq symbol corresponding to
+the actual function definition, and this one should not be changed. Follow these steps:
+
+cp libpp.a libpp2.a
+
+Open libpp2.a with your favorite text editor, and replace the *first* and *second* occurence
+of 'ppTxPkt' (without the quotes) with 'aaTxPkt' (without the quotes). There is a third occurence
+in the file, do not replace it (keep it as 'ppTxPkt').
+
+The Makefile must also be modified to link to net80211_2 and pp2 instead of net80211 and pp.
 Use make -f Makefile2 to build.
