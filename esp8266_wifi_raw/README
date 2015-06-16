@@ -37,7 +37,7 @@ NOTES:
 This program requires a modified libnet80211 and libpp library, which we called libnet80211_2.a and libpp2.a.
 The modified net80211 library has its symbol table changed so that all references to ppTxPkt
 are replaced with a dummy function called 'aaTxPkt' defined in user_main.c.
-A simple way to do this is to go in the /opt/esp_open_sdk/lib/ folder, and do
+A simple way to do this is to go in the /opt/esp_open_sdk/sdk/lib/ folder, and do
 
 sed s/ppTxPkt/aaTxPkt/g libnet80211.a > libnet80211_2.a
 
