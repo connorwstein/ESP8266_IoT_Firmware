@@ -3,111 +3,58 @@
 #include "ets_sys.h"
 #include "user_interface.h"
 
-#include "ap_server.h"
-#include "device_config.h"
-#include "network_cmds.h"
-#include "helper.h"
-#include "wifi.h"
 
-#include "debug.h"
+#include "gpio.h"
 
-bool HAS_BEEN_CONNECTED_AS_STATION;
-bool HAS_RECEIVED_CONNECT_INSTRUCTION;
 
-void ICACHE_FLASH_ATTR init_done()
-{
-	DEBUG("enter init_done");
-	const char *opmodes[] = {"NONE", "STATION_MODE", "SOFTAP_MODE", "STATIONAP_MODE"};
-	struct softap_config config;
-	struct ip_info info;
-	uint8 opmode;
-	enum dhcp_status status;
 
-	opmode = wifi_get_opmode();
+void ICACHE_FLASH_ATTR read(void){
 
-	if (opmode != SOFTAP_MODE) {
-		DEBUG("exit init_done");
-		return;
-	}
+	int data[100];
+	int i=0;
+    data[0] = data[1] = data[2] = data[3] = data[4] = 0;
 
-	ets_uart_printf("Current Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
+    GPIO_OUTPUT_SET(2, 1);
+    ets_uart_printf("GPIO2 after output set, delay for 0.25s: %d\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
+    os_delay_us(250000);
+    GPIO_OUTPUT_SET(2, 0);
+    ets_uart_printf("GPIO2 after output set, delay for 20ms: %d\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
+    os_delay_us(20000);
+    GPIO_OUTPUT_SET(2, 1);
+    ets_uart_printf("GPIO2 after output set, delay for 40us: %d\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
+    os_delay_us(40);
+    GPIO_DIS_OUTPUT(2);
+    ets_uart_printf("GPIO2 after output set, before pullup: %d\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
+    PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO2_U);
+    ets_uart_printf("GPIO2 after output set, after pullup: %d\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
 
-	ets_uart_printf("\n");
+    // wait for pin to drop?
+    while (GPIO_INPUT_GET(2) == 1 && i<100000) {
+          os_delay_us(1);
+          i++;
+    }
 
-	if (!wifi_softap_get_config(&config))
-		ets_uart_printf("Failed to get wifi softap config.\n");
-	else
-		print_softap_config(&config);
-
-	ets_uart_printf("\n");
-
-	if (!wifi_get_ip_info(SOFTAP_IF, &info))
-		ets_uart_printf("Failed to get ip info.\n");
-	else
-		print_ip_info(&info);
-
-	ets_uart_printf("\n");
-
-	status = wifi_softap_dhcps_status();
-
-	ets_uart_printf("DHCP server status:\t%d\n", status);
-	ets_uart_printf("\n");
-
-	if (ap_server_init() != 0)
-		ets_uart_printf("Failed to initialize ap server.\n");
-
-	DEBUG("exit init_done");
-}
-
-void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg)
-{
-	DEBUG("enter wifi_timer_cb");
-
-	if (!HAS_BEEN_CONNECTED_AS_STATION) {
-		ets_uart_printf("wifi timer timeout\n");
-		go_back_to_ap(NULL);
-	}
-
-	DEBUG("exit wifi_timer_cb");
+    if(i==100000)
+      return;
+  	ets_uart_printf("DEVICE READY TO COMMUNICATE\n");
 }
 
 void ICACHE_FLASH_ATTR user_init()
 {
-	DEBUG("enter user_init");
-	static ETSTimer wifi_connect_timer;
+
+	// static ETSTimer wifi_connect_timer;
 
 	// system_restore();
 	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
-	ets_uart_printf("\n\n\n");
-
-	HAS_RECEIVED_CONNECT_INSTRUCTION = false;
-	HAS_BEEN_CONNECTED_AS_STATION = false;
-
-	if (DeviceConfig_already_exists()) {
-		struct DeviceConfig conf;
-
-		if (DeviceConfig_read_config(&conf) != 0) {
-			ets_uart_printf("Failed to read device config.\n");
-		} else {
-			ets_uart_printf("Current device config: device_name = %s, device_type = %d\n",
-					conf.name, conf.type);
-		}
-
-		DeviceConfig_delete(&conf);
-	} else {
-		ets_uart_printf("This device has not yet been configured.\n");
-	}
-
-	wifi_set_opmode(STATION_MODE);
-	wifi_set_event_handler_cb(sta_wifi_handler);
-
-	if (!wifi_station_set_auto_connect(1))
-		ets_uart_printf("Unable to set auto connect.\n");
 	
-	system_init_done_cb(&init_done);
-
-	os_timer_setfn(&wifi_connect_timer, wifi_timer_cb, NULL);
-	os_timer_arm(&wifi_connect_timer, AUTO_CONNECT_TIMEOUT, false); 
-	DEBUG("exit user_init");
+	//ENABLE the power on GPIO2 3.3V
+	//defined in eagle_soc.h PERIPHS_IO_MUX_GPIO2_U --> (PERIPHS_IO_MUX + 0x38)
+	//FUNC_GPIO2 -->  0
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2); 
+	ets_uart_printf("GPIO2 after PIN_FUNC_SELECT: %d\n",GPIO_INPUT_GET(BIT2)); //READS pin 1=high 3.3V
+    PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO2_U);	
+	ets_uart_printf("GPIO2 after PIN_PULLUP_EN: %d\n",GPIO_INPUT_GET(BIT2)); //READS pin 1=high 3.3V
+	read();
 }
+
