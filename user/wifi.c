@@ -6,6 +6,7 @@
 #include "helper.h"
 #include "sta_server.h"
 
+#include "wifi_user_interface.h"
 #include "debug.h"
 
 extern bool HAS_BEEN_CONNECTED_AS_STATION;
@@ -105,9 +106,9 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 
 		case EVENT_STAMODE_DISCONNECTED:
 			ets_uart_printf("Disconnected from Access Point!\n");
-			ets_uart_printf("SSID: %s\n", event->event_info.disconnected.ssid);
-			ets_uart_printf("BSSID: %s\n", str_bssid(event->event_info.disconnected.bssid));
-			ets_uart_printf("Reason: %d\n", event->event_info.disconnected.reason);
+//			ets_uart_printf("SSID: %s\n", event->event_info.disconnected.ssid);
+//			ets_uart_printf("BSSID: %s\n", str_bssid(event->event_info.disconnected.bssid));
+//			ets_uart_printf("Reason: %d\n", event->event_info.disconnected.reason);
 			ets_uart_printf("\n");
 
 			//Retart to discovery mode i.e. AP only

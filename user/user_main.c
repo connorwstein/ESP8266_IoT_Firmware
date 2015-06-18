@@ -101,13 +101,15 @@ void ICACHE_FLASH_ATTR user_init()
 
 	wifi_set_opmode(STATION_MODE);
 	wifi_set_event_handler_cb(sta_wifi_handler);
+	wifi_event_handler_task_start();
 
 	if (!wifi_station_set_auto_connect(1))
 		ets_uart_printf("Unable to set auto connect.\n");
 	
-	system_init_done_cb(&init_done);
+//	system_init_done_cb(&init_done);
 
 	os_timer_setfn(&wifi_connect_timer, wifi_timer_cb, NULL);
 	os_timer_arm(&wifi_connect_timer, AUTO_CONNECT_TIMEOUT, false); 
-	DEBUG("exit user_init");
+	DEBUG("exit user_init; call init_done");
+	init_done();
 }
