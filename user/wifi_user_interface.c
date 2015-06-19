@@ -21,6 +21,7 @@ static void ICACHE_FLASH_ATTR wifi_event_handler_task(os_event_t *e)
 		status = wifi_station_get_connect_status();
 
 		if (status != prev_status) {
+			DEBUG("eventhandler\n");
 			if (status == STATION_GOT_IP) {
 				evt.event = EVENT_STAMODE_GOT_IP;
 				wifi_get_ip_info(STATION_IF, (struct ip_info *)&(evt.event_info.got_ip));
@@ -37,6 +38,8 @@ static void ICACHE_FLASH_ATTR wifi_event_handler_task(os_event_t *e)
 				wifi_handle_event_cb(&evt);
 			}
 		}
+
+		prev_status = status;
 	}
 
 	system_os_post(USER_TASK_PRIO_1, 0, 0);

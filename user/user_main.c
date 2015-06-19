@@ -26,6 +26,7 @@ void ICACHE_FLASH_ATTR init_done()
 	opmode = wifi_get_opmode();
 
 	if (opmode != SOFTAP_MODE) {
+		wifi_station_set_auto_connect(1);
 		DEBUG("exit init_done");
 		return;
 	}
