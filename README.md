@@ -36,3 +36,9 @@ NOTES:
 	Load these files in the NodeMCU flasher (in the Config tab). Flash them one by one.
 
 	After following these steps, you should be able to get the code working.
+
+
+# UPDATE:
+	It appears removing the breadboard and updating the flasher also fixes
+	the issue with SDK 1.0.1 (or 1.1.0) not working (wifi_set_opmode would hang).
+	We can use the firmware from the master branch on this chip too!!!
