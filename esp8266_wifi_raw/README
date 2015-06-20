@@ -31,7 +31,7 @@ Update: It turns out the method only sniffs frames which are broadcast or direct
 	all packets send over the air. It does receive the complete frames for packets
 	that are actually processed by the driver. If we set the device to promiscuous
 	mode (using wifi_enable_promiscuous(1)) the callback we set up does not get called anymore.
-	It seems promicuous mode is dealt with differently, and the hardware may not be able
+	It seems promiscuous mode is dealt with differently, and the hardware may not be able
 	to give the complete frames in this mode...
 
 This can be thought of as a proof of concept, but there is still

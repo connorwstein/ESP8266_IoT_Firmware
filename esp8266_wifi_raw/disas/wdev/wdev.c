@@ -1,9 +1,10 @@
 struct _wdev_ctrl {
-	/* stub ... */
+	/* stub... most of the fields I have no idea what they mean */
 	uint16	a_0;	/* some counter ? */
 	uint16	a_2;	/* other counter ? */
 	uint8 	a_5;	/* whether in promiscuous mode or not */
 	void  **a_8;	/* type(a_8[1]) = (struct RxControl *) (or struct sniffer_buf * ?) */
+	// other fields...
 };
 
 struct _wdev_ctrl wDevCtrl;	/* XXX Don't know the size yet... */
@@ -340,7 +341,8 @@ _0x40104a0d:
 	}
 
 _0x40104a12:
-	
+	// unfinished yet
+	// XXX this whole function needs to be cleaned up!
 }
 
 /* <trc_NeedRTS+0x240> */
@@ -479,7 +481,7 @@ void wDev_ProcessFiq()
 				a1_0 = $a12 & (1 << 18);
 			}
 
-			switch (!(($a15 >> 28) & 0xf)) {
+			switch (($a15 >> 28) & 0xf) {
 				case 0: /* 0x4010416a */
 					lmacProcessTxSuccess($a13, $a14 & 0xff);
 					a1_32 = $a13;
