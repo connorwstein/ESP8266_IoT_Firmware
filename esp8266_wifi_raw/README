@@ -26,7 +26,13 @@ the complete frame.
 Make sure you are listening in the correct channel and PHY mode.
 Note that the ESP8266 does not seem to support the 5GHz wifi.
 
-
+Update: It turns out the method only sniffs frames which are broadcast or directed to
+	the device's own MAC address. It is not in promiscuous mode, so it can't receive
+	all packets send over the air. It does receive the complete frames for packets
+	that are actually processed by the driver. If we set the device to promiscuous
+	mode (using wifi_enable_promiscuous(1)) the callback we set up does not get called anymore.
+	It seems promicuous mode is dealt with differently, and the hardware may not be able
+	to give the complete frames in this mode...
 
 This can be thought of as a proof of concept, but there is still
 a lot to work on. We don't know if we'll have the patience or ability to do so...
