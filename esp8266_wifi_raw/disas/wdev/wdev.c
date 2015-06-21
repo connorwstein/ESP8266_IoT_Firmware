@@ -17,14 +17,74 @@ static void _0x40103e64(uint32 arg1)
 		((void (*)())(((void **)&tcb + 159)[arg1]))();
 }
 
-static void _0x40103b24()
+/* <trc_NeedRTS+0xc4> */
+static void _0x40103a14(uint16 arg1, uint8 **arg2)
 {
-	// stub
+	$a10 = ((uint16 *)&wDevCtrl)[1];
+	((uint16 *)&wDevCtrl)[0] -= arg1;
+
+	$a6 = ((uint16 *)&wDevCtrl)[0];
+	$a2 = 0;
+
+	if ($a6 < 2) {
+		if ($a6 != 1) {
+			((uint16 *)&wDevCtrl)[1] = 0;
+			((uint16 *)&wDevCtrl)[0] = $a10;
+			$a6 = ((uint32 *)&wDevCtrl)[5];
+			$a11 = ((uint32 *)&wDevCtrl)[4];
+			((uint32 *)&wDevCtrl)[2] = $a11;
+			((uint32 *)&wDevCtrl)[4] = 0;
+			((uint32 *)&wDevCtrl)[3] = $a6;
+			((uint32 *)&wDevCtrl)[5] = 0;
+			$a10 &= 0xffff;
+
+			if ($a10 == 1) {
+				$a4 = (uint32 *)&wDevCtrl + 6;
+				((uint32 *)$a6)[2] = $a4;
+			}
+
+			((uint32 *)$arg2)[2] = 0;
+			$a7 = 0x3ff1fe00;
+			$a6 = ((uint32 *)&wDevCtrl)[2];
+			((volatile uint32 *)0x3ff1fe00)[130] = $a6;
+		} else {
+			$a9 = arg2[2];
+			((uint32 *)&wDevCtrl)[2] = $a9;
+			arg2[2] = 0;
+			$a8 = ((uint32 *)&wDevCtrl)[3];
+			$a7 = ((uint32 *)&wDevCtrl)[6];
+			((uint32 *)$a8)[2] = $a7;
+		}
+	} else {
+		$a6 = arg2[2];
+		((uint32 *)&wDevCtrl)[2] = $a6;
+		arg2[2] = 0;
+	}
+
+	$a9 = ((uint16 *)&wDevCtrl)[1];
+	$a8 = ((uint16 *)&wDevCtrl)[0];
+	$a8 += $a9;
+
+	if ($a8 < 2) {
+		((volatile uint32 *)0x3ff20a00)[170] &= 0x0fffffff;
+		((volatile uint32 *)0x3ff20a00)[171] &= 0x0fffffff;
+	}
 }
 
-static void _0x40103b54()
+/* <trc_NeedRTS+0x1d4> */
+static void _0x40103b24(uint8 **arg1, uint16 arg2)
 {
-	// stub
+	_0x40103a14(arg2, arg1);	/* <trc_NeedRTS+0xc4> */
+	wDev_AppendRxBlocks(((uint32 *)&wDevCtrl)[2], arg1, arg2);	
+}
+
+/* <trc_NeedRTS+0x204> */
+static void _0x40103b54(uint8 *arg1, uint8 arg2)
+{
+	((uint32 *)&wDevCtrl)[12] = *(uint32 *)(arg1 + 8);
+	*(uint32 *)(arg1 + 8) = 0;
+	((uint32 *)&wDevCtrl)[1] -= arg2;
+	wDev_AppendRxAmpduLensBlocks(((uint32 *)&wDevCtrl)[12], arg1);
 }
 
 /* <wDevDisableRx+0x34> */
