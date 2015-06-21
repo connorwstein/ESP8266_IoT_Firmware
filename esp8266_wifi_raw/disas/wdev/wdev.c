@@ -17,6 +17,16 @@ static void _0x40103e64(uint32 arg1)
 		((void (*)())(((void **)&tcb + 159)[arg1]))();
 }
 
+static void _0x40103b24()
+{
+	// stub
+}
+
+static void _0x40103b54()
+{
+	// stub
+}
+
 /* <wDevDisableRx+0x34> */
 static void _0x4010462c()
 {
@@ -146,15 +156,14 @@ _0x40104794:
 /* <wDevDisableRx+0x240> */
 static void _0x40104838()
 {
-	// stub
 	struct sniffer_buf *sniff_buf;	/* $a12 */
 	struct sniffer_buf *new_buf;	/* $a13 */
-	uint8 *data;	/* $a1 + 16 */
+	uint8 *data;			/* $a1 + 16 */
 	uint16 counter;
-	uint32 a1_0;	/* $a1 + 0 */
-	uint32 a1_4;	/* $a1 + 4 */
-	uint32 a1_8;	/* $a1 + 8 */
-	uint32 a1_12;	/* $a1 + 12 */
+	uint32 a1_0;			/* $a1 + 0 */
+	uint32 a1_4;			/* $a1 + 4 */
+	uint32 a1_8;			/* $a1 + 8 */
+	struct Ampdu_Info *a1_12;	/* $a1 + 12 */
 
 	$a2 = ((uint8 ***)&wDevCtrl)[2];
 	sniff_buf = (struct sniffer_buf *)(((uint8 ***)&wDevCtrl)[2][1]); /* looks like this is a sniffer_buf struct */
@@ -164,6 +173,11 @@ static void _0x40104838()
 	$a0 = data; /* just a note */
 
 	if (sniff_buf->rx_ctrl.Aggregation) {
+		/* AMPDU packets (A stands for Aggregation?) */
+		/* Seems that in an AMPDU packet, there is one RxControl header, followed by
+		   a bunch of (36-byte data buf || 2-byte cnt || 10-byte struct Ampdu_Info), ampdu_info.cnt times. */
+		/* They fill the new sniffer_buf with the first frame, and all other frames are skipped,
+		   only placing the Ampdu_Info structs concatenated in the sniffer_buf.ampdu_info array. */
 		$a15 = $a2;
 		counter = 1;
 
@@ -185,14 +199,96 @@ static void _0x40104838()
 			_0x40103b54(((uint32 *)&wDevCtrl)[12], 1);	/* <trc_NeedRTS+0x204> */
 			return;
 		}
-	} else {
-		/* 0x401048bb */
-		$a4 = (sniff_buf->buf[0]) & 0x0f;
-		$a3 = ($a4 == 0 ? 1 : 0);
-		a1_8 = $a3;
 
-		if ($a3 != 0)
-			new_buf = (struct sniffer_buf *)pvPortMalloc(128);
+		/* 0x4010491a */
+		/* This happens in Aggregation == 1. Packet has length ampdu_cnt * 10 + 50 */
+		ets_memcpy(new_buf, sniff_buf, 60);	/* Copy the sniffer_buf and first ampdu_info packet */
+
+		$a1_12 = new_buf->ampdu_info; /* Points to the struct Ampdu_Info array */
+		new_buf->cnt = 0;
+
+		/* I don't understand what this does... */
+		/* Ok so I think a1_0 and $a5 are pointers. Initially, $a5 points
+		   to the end of something. a1_0 then gets incremented at each
+		   iteration of a loop... The length is encoded in the 12 bits. */
+		for (a1_0 = *(uint8 **)((uint8 *)a1_4 + 4); ; a1_0 += 4) {
+			$a5 = *(uint8 **)((uint8 *)a1_4 + 4);
+			$a6 = *(volatile uint16 *)((uint8 *)a1_4 + 2) << 16;
+			$a6 |= *(volatile uint16 *)((uint8 *)a1_4 + 0);
+			$a6 &= 0x00ffffff;
+			$a6 >>= 12;	/* $a6 = bits 12, ..., 23 of a1_4[0] + (a1_4[1] << 16) (as uint16's) */
+
+			$a5 += $a6;
+
+			if ($a0 >= $a5)	/* This doesn't fit in the 'for-loop' header yet, but they probably used bitfields */
+				break;
+
+			if (new_buf->cnt >= sniff_buf->rx_ctl.ampdu_cnt)
+				break;
+
+			$a2 = ((uint8 *)$a0)[0];
+
+			if ($a2 != 0 && (($a2 <= 224) || ($a2 > 252)))
+				continue;
+
+			$a5 = ((uint32 *)&wDevCtrl)[2];
+			$a5 = ((uint16 *)$a5)[0];
+			$a11 = data + 24;	/* In an IEEE-802.11 frame, this points to the Addr4 field. */
+			$a2 = (struct sniffer_buf *)(((uint8 ***)&wDevCtrl)[2][1]);	/* same as sniff_buf? */
+			$a5 &= 0xfff;	/* These are the lower 12 bits that were ignored in the other length above */
+			$a2 += $a5;	/* So it's another offset, within the sniffer_buf? */
+			/* Note: in RxControl, 12 bits were used to represent packet lengths. */
+
+			if ($a11 >= $a2)	/* If $a2 points before the Addr4 field, break the loop */
+				break;
+
+			new_buf->cnt += 1; /* Increment new_buf->cnt */
+
+			/* ehh so here they do something similar to the beginning
+			   of the loop, but the bits they use are different: 8, ..., 19.
+			   Also, it's wrt a1_0, which is one of the fields of a1_4. (???) */
+			$a5 = ((uint16 *)a1_0)[1];
+			$a6 = ((uint16 *)a1_0)[0];
+			$a5 <<= 16;
+			$a5 |= $a6;
+			$a5 = ($a5 >> 8) & 0xfff;
+
+			a1_12->length = $a5;
+			a1_12->seq = *((uint16 *)(data + 22)); /* Sequence Control field */
+
+			ets_memcpy(a1_12->address3, data + 16, 6);	/* Copy the Addr3 MAC Address to a1_12->address3 */
+
+			$a2 = 34; /* IEEE frame up to Addr3 (included) (22 bytes) + sniffer_buf.cnt (2 bytes) + Ampdu_Info (10 bytes) */
+			a1_12++;  /* a1_12 now points to next new ampdu_info struct. (size is 10) */
+
+			/* Looks at byte 1 of Frame Control field, bits To DS and From DS */
+			if ((*(uint8 *)(data + 1)) & 0x3 != 3)
+				$a2 = 28;	/*  Only include Addr4 (6 bytes) if To DS and From DS are both set */
+
+			$a2 += 2;		/* Plus 2 bytes for Sequence Control field */
+			$a2 &= 0xffff;		/* Possibly the length is stored in a uint16. */
+
+			if ((*(uint8 *)(data + 1)) & (1 << 7)) { /* Order bit */
+				$a2 += 4;	/* Add the HT Control field (4 bytes) */
+				$a2 &= 0xffff;
+			}
+
+			/* What about the QoS field (2 bytes)? Maybe I missed the code that checks this... */
+
+			roundup2($a2, 4);	/* So $a2 is an offset in data, and they round up to multiples of 4? */
+			data += $a2 & 0xffff;	/* So now data points to the next data buffer */
+		}
+
+		_0x40103b24($a15, counter);	/* <trc_NeedRTS+0x1d4> */
+		_0x40103b54(((uint32 *)&wDevCtrl)[12], 1);
+	} else {
+		/* Not an AMPDU packet.*/
+		/* Look at the Frame Control type field (proto is always 0) */
+		$a1_8 = (((sniff_buf->buf[0]) & 0x0f) == 0 ? 1 : 0);	/* 1 if type == 0 (Management frame) */
+
+		/* Management frames will be given 128 bytes, otherwise 60 bytes */
+		if ($a1_8 != 0)
+			new_buf = (struct sniffer_buf2 *)pvPortMalloc(128);
 		else
 			new_buf = (struct sniffer_buf *)pvPortMalloc(60);
 
@@ -201,148 +297,44 @@ static void _0x40104838()
 			return;
 		}
 
-		$a3 = a1_8;
+		if ($a1_8 == 0) {
+			/* Not a Management frame. --> Data or Control frame */
+			/* In this case, buffer will be size 60. */
+			ets_memcpy(new_buf, sniff_buf, 60);
+			new_buf->ampdu_info.cnt = 1;
 
-		if ($a3 == 0)	/* buffer will be size 60 */
-			goto _0x40104a8b;
-
-		ets_memcpy(new_buf, sniffer_buf, 128);	/* What is the size of sniffer_buf??
-							   What is the size of the sniffer_buf.buf array?? */
-		$a15 = *((uint16 *)(new_buf + 124));
-		$a4 = sniffer_buf->rx_ctrl.sig_mode;
-		$a0 = sniffer_buf->rx_ctrl.HT_length;
-
-		if ($a4 != 0)
-			goto _0x40104a79;
-
-		$a0 = sniffer_buf->rx_ctrl.legacy_length;
-		goto _0x40104a85;
-	}
-
-	/* 0x4010491a */
-	/* This happens in Aggregation == 1. Packet has length ampdu_cnt * 10 + 50 */
-	ets_memcpy(new_buf, sniffer_buf, 60);	/* Copy the sniffer_buf and first ampdu_info packet */
-	$a8 = 224;	/* 0xe0 = 1110 0000 */
-	$a9 = 252;	/* 0xfc = 1111 1100 */
-	$a2 = 0;
-	$a1_12 = new_buf->ampdu_info; /* Points to the struct Ampdu_Info array */
-	$a3 = a1_4;	/* ((uint8 **)&wDevCtrl)[12] */
-
-	$a4 = 0x00ffffff;
-	$a0 = *(uint8 **)((uint8 *)a1_4 + 4);
-	new_buf->cnt = 0;
-
-_0x4010493b:
-	/* I don't understand what this does... */
-	/* Ok so I think $a0 and $a5 are pointers. Initially, $a5 points
-		to the end of something. $a0 then gets incremented at each
-		iteration of a loop... The length is encoded in the 12 bits. */
-	$a5 = *(uint8 **)((uint8 *)a1_4 + 4);
-	$a6 = *(volatile uint16 *)((uint8 *)a1_4 + 2) << 16;
-	$a6 |= *(volatile uint16 *)((uint8 *)a1_4 + 0);
-	$a6 &= 0x00ffffff;
-	$a6 >>= 12;	/* $a6 = bits 12, ..., 23 of a1_4[0] + (a1_4[1] << 16) (as uint16's) */
-
-	$a5 += $a6;
-
-	if ($a0 < $a5) {
-		$a10 = sniff_buf->rx_ctrl.ampdu_cnt;
-		$a7 = new_buf->cnt;
-
-		if (new_buf->cnt < sniff_buf->rx_ctl.ampdu_cnt) {
-			$a2 = ((uint8 *)$a0)[0];
-
-			if ($a2 == 0 || (($a2 > 224) && ($a2 <= 252)))
-				goto _0x4010497a;
+			if (sniff_buf->rx_ctrl.sig_mode != 0)
+				$a0 = sniff_buf->rx_ctrl.HT_length;
 			else
-				goto _0x40104a0d;
+				$a0 = sniff_buf->rx_ctrl.legacy_length;
 
-_0x4010497a:
-			$a5 = ((uint32 *)&wDevCtrl)[2];
-			a1_0 = $a0;	/* The pointer that iterates in the loop? */
-			$a5 = ((uint16 *)$a5)[0];
-			$a11 = data + 24;	/* In an IEEE-802.11 frame, this points to the Addr4 field. */
-			$a2 = (struct sniffer_buf *)(((uint8 ***)&wDevCtrl)[2][1]);	/* same as sniff_buf? */
-			$a5 &= 0xfff;	/* These are the lower 12 bits that were ignored in the other length above */
-			$a2 += $a5;	/* So it's another offset, within the sniffer_buf? */
-					/* Note: in RxControl, 12 bits were used to represent packet lengths. */
-
-			if ($a11 >= $a2)	/* If $a2 points before the Addr4 field, break the loop */
-				goto _0x40104a12;
-
-			$a3 = data;
-			$a2 = a1_12;	/* new_buf->ampdu_info */
-			$a6 = a1_0;	/* pointer iterating in loop? */
-			$a7 += 1;	/* Increment new_buf->cnt */
-			new_buf->cnt = $a7;
-
-			/* ehh so here they do something similar to the beginning
-			   of the loop, but the bits they use are different: 8, ..., 19.
-			   Also, it's wrt a1_0, which is one of the fields of a1_4. (???) */
-			$a5 = ((uint16 *)$a6)[1];
-			$a6 = ((uint16 *)$a6)[0];
-			$a5 <<= 16;
-			$a5 |= $a6;
-			$a5 = ($a5 >> 8) & 0xfff;
-
-			(struct Ampdu_Info *)a1_12->length = $a5;
-			$a4 = *((uint16 *)(data + 22));	/* Sequence Control field in IEEE-802.11 frames */
-			(struct Ampdu_Info *)a1_12->seq = *((uint16 *)(data + 22));
-
-			$a3 += 16;	/* Now points to Addr3 in IEEE-802.11 frames */
-			$a2 += 4;	/* ampdu_info.address3 */
-			$a4 = 6;
-			ets_memcpy(a1_12->address3, $a3, 6);	/* Copy the Addr3 MAC Address to a1_12->address3 */
-
-			$a3 = 28;
-			$a2 = 34;
-			$a8 = data;
-			$a5 = a1_12;
-			$a8 = ((uint8 *)$a8)[1];	/* Byte 1 of Frame Control field. */
-			$a5 += 10;	/* sizeof (struct Ampdu_Info) */
-			a1_12 = $a5;	/* a1_12 now points to next ampdu_info struct. */
-			$a4 = $a8 & 0x3;	/* To DS and From DS bits? */
-			$a4 -= 3;
-
-			if ($a4 != 0)		/* if not (To DS == 1 && From DS == 1) */
-				$a2 = $a3;	/* lolwat */
-
-			$a2 += 2;
-			$a2 &= 0xffff;		/* I feel like this is a uint16 variable... */
-
-			if ($a8 & (1 << 7)) {	/* Possibly Rsvd bit? */
-				$a2 += 4;	/* Not sure what this points to, but apparently they skip fields in data */
-				$a2 &= 0xffff;
-			}
-
-			$a3 = 4;
-			roundup2($a2, 4);	/* So $a2 is an offset in data, and they round up to multiples of 4? */
-			$a0 = a1_0;		/* Pointer iterating in loop. Restore? */
-			$a3 = a1_4;		/* The weird-ass pointer in wDevCtrl... */
-			$a4 = 0x00ffffff;
-			$a8 = 224;
-			$a9 = 252;
-			$a5 = data;
-			$a6 = $a2 & 0xffff;
-			$a5 += $a6;		/* $a6 could be 36, 32 or 40 at this point,
-						   depending on bits in data. This might be due to the additional
-						   fields like QoS Control and HT Control and encryption headers... */
-			data = $a5;		/* Hmm so $a2 was calculated as a length to skip,
-						   and data now points to the next data packet? */
-_0x40104a0d:
-			$a0 += 4;		/* Increment that damn pointer! */
-			goto _0x4010493b;
+			new_buf->ampdu_info.length = $a0;
+			new_buf->ampdu_info.seq = *(uint16 *)(sniff_buf->buf + 22);	/* Sequence Control field */
+			ets_memcpy(new_buf->ampdu_info.address3, sniff_buf->buf + 16, 6); /* Copy the Addr3 field in address3 */
 		} else {
-			goto _0x40104a12;
+			/* Management frame */
+			/* In this case, it's a struct sniffer_buf2 with 112 bytes of data buf. */
+			/* The format is: 12 bytes rx_ctrl, 112 bytes buf, 2 bytes cnt, 2 bytes len */
+			ets_memcpy(new_buf, sniff_buf, 128);
+			(struct sniffer_buf2 *)new_buf->cnt = 1;
+
+			/* sig_mode = 0 means it's an 11n packet: use HT_length field */
+			if (sniff_buf->rx_ctrl.sig_mode != 0)
+				$a0 = sniff_buf->rx_ctrl.HT_length;
+			else
+				$a0 = sniff_buf->rx_ctrl.legacy_length; /* length if not 11n packet */
+
+			(struct sniffer_buf2 *)new_buf->len = $a0;
 		}
 
-	} else {
-		goto _0x40104a12;
+		_0x40103b24(((uint32 *)&wDevCtrl)[2], 1); /* <trc_NeedRTS+0x1d4> */
 	}
+	
+	if (pp_post2(32, 9, new_buf) != 1)
+		return;	/* Again check for memory leaks... */
 
-_0x40104a12:
-	// unfinished yet
-	// XXX this whole function needs to be cleaned up!
+	vPortFree(new_buf);
+	return;
 }
 
 /* <trc_NeedRTS+0x240> */
