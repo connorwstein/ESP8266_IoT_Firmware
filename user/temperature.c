@@ -17,6 +17,8 @@ typedef struct dht{
 	unsigned short temperature;
 }dht;
 
+static dht DHT;
+
 void ICACHE_FLASH_ATTR set_dht(unsigned char* data){
 	int i;
 	//Skip the first 2, just initiating the communication
@@ -31,8 +33,8 @@ void ICACHE_FLASH_ATTR set_dht(unsigned char* data){
 		data_compressed[i/16]<<=1;
 		data_compressed[i/16]|=data[i];
 	}
-	dht.humidity=data_compressed[0];
-	dht.temperature=data_compressed[1];
+	DHT.humidity=data_compressed[0];
+	DHT.temperature=data_compressed[1];
 	ets_uart_printf("Humidity: %d Temp: %d\n\n",data_compressed[0],data_compressed[1]);
 }
 
@@ -148,7 +150,7 @@ void ICACHE_FLASH_ATTR Temperature_get_temperature(struct espconn *conn)
 	char buff[20];
 	memcpy(buff,dht,sizeof dht);
 	if(read()!=-1){
-		ets_uart_printf("Sending Humidity: %d Temperature%d\n",dht.humidity,dht.temperature);
+		ets_uart_printf("Sending Humidity: %d Temperature%d\n",DHT.humidity,DHT.temperature);
 		espconn_sent(conn, (uint8 *)buff, os_strlen(buff))
 	}
 }
