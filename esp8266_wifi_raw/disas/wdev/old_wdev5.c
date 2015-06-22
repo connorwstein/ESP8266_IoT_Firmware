@@ -390,12 +390,6 @@ static void _0x40104838()
 	return;
 }
 
-/* <trc_NeedRTS+0x154> */
-static void _0x40103aa4()
-{
-	// stub
-}
-
 /* <trc_NeedRTS+0x240> */
 static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, uint32 arg4)
 {
@@ -427,215 +421,309 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 	$a0 |= $a3;
 	sniff_buf->rx_ctrl.channel = $a0;
 
-	if ($a14 == 0) {
-		$a0 = &wDevCtrl;
-		$a10 = sniff_buf->rx_ctrl.damatch0;	/* $a9 = sniff_buf->rx_ctrl .byte 3 */
+	if ($a14 != 0)
+		goto _0x40103c16;
 
-		if (sniff_buf->rx_ctrl.damatch0 || sniff_buf->rx_ctrl.damatch1) {
-			$a7 = $a2 & 0x0f;	/* subtype in frame control? */
+	$a0 = &wDevCtrl;
+	$a10 = sniff_buf->rx_ctrl.damatch0;	/* $a9 = sniff_buf->rx_ctrl .byte 3 */
 
-			switch ($a7) {
-				case 0:
-					$a4 = $a2 & $a11;
+	if (sniff_buf->rx_ctrl.damatch0)
+		goto _0x40103bfc;
 
-					if ($a4 == 128) {
-						if ($a10 == 0) {
-							$a7 = 0;
-							$a13 = 1;
-						} else {
-							$a4 = a1_28;
-							$a5 = 1;
-							$a13 = 0;
+	$a3 = sniff_buf->rx_ctrl.damatch1;
 
-							if ($a4 == 0)
-								$a13 = $a5;
+	if ($a3 == 0)
+		goto _0x40103c99;
 
-							if ($a4 == 0) {
-								$a7 = 0;
-							} else {
-								$a2 = phy_get_bb_freqoffset();
-								$a0 = &wDevCtrl;
-								$a7 = $a2 << 16;
-								(signed)$a7 >>= 16;	/* srai 16 instead of srli 16 */
-							}
-						}
-					} else {
-						$a7 = 0;
-						$a13 = 0;
-					}
+	goto _0x40103bfc;
 
-					((uint32 *)&wDevCtrl)[95] += 1;
-					$a2 = 1;
-					break;
+_0x40103bfc:
+	$a7 = $a2 & 0x0f;	/* subtype in frame control? */
 
-				case 4:
-					$a2 &= $a11;
+	if ($a7 == 0)
+		goto _0x40103cd0;
 
-					switch ($a2) {
-						case 128:
-							((uint32 *)&wDevCtrl)[91] += 1;
-							$a13 = 1;
-							break;
+	$a4 = $a7 - 4;
 
-						case 144:
-							((uint32 *)&wDevCtrl)[92] += 1;
-							$a13 = 1;
-							break;
+	if ($a4 == 0)
+		goto _0x40103ce0;
 
-						case 160:
-							$a13 = 0;
-							((uint32 *)&wDevCtrl)[93] += 1;
-							break;
+	$a5 = $a7 - 8;
 
-						default:
-							((uint32 *)&wDevCtrl)[94] += 1;
-							$a13 = 1;
-							break;
-					}
+	if ($a5 == 0)
+		goto _0x40103d2d;
 
-					$a7 = 0;
-					$a2 = 0;
-					break;
+	((uint32 *)&wDevCtrl)[99] += 1;
+	goto _0x40103c16;
 
-				case 8:
-					$a0 = &wDevCtrl;
-					((uint32 *)&wDevCtrl)[96] += 1;
-					$a2 = $a13;
-					rcUpdateDataRxDone($a2);
+_0x40103c16:
+	$a7 = 0;
+	$a2 = 0;
+	$a13 = 1;
+	goto _0x40103c2d;
 
-					$a7 = 0;
-					$a2 = 0;
-					$a13 = 0;
-					break;
+_0x40103c1f:
+	$a7 = 0;
+	$a13 = 1;
+	goto _0x40103c23;
 
-				default:
-					((uint32 *)&wDevCtrl)[99] += 1;
-					$a7 = 0;
-					$a2 = 0;
-					$a13 = 1;
-					break;
-			}
-		} else {
-			if (sniff_buf->rx_ctrl.bssidmatch0 || sniff_buf->rx_ctrl.bssidmatch1) {
-				$a7 = $a2 & 0x0f;
-
-				switch ($a7) {
-					case 0:
-						$a2 &= 0xff;
-
-						switch ($a2) {
-							case 64:
-								$a7 = 0;
-								$a13 = 0;
-								break;
-
-							case 80:
-								$a7 = 0;
-								$a13 = 1;
-								break;
-
-							case 128:
-								$a11 = a1_28;
-								$a3 = 1;
-								$a13 = 0;
-
-								if ($a11 == 0)
-									$a13 = $a3;
-
-								if ($a11 == 0) {
-									$a7 = 0;
-								} else {
-									$a2 = phy_get_bb_freqoffset();
-									$a0 = &wDevCtrl;
-									$a7 = $a2 << 16;
-									(signed)$a7 >>= 16;	/* srai 16 instead of srli 16 */
-								}
-
-								$a8 = a1_28;
-
-								if ($a8 != 0)
-									((uint32 *)&wDevCtrl)[98] += 1;
-
-								break;
-
-							default:
-								$a7 = 0;
-								$a13 = 1;
-								break;
-						}
-
-						$a2 = 1;
-						break;
-
-					case 4:
-						$a7 = 0;
-						$a2 = 0;
-						$a13 = 1;
-						break;
-					case 8:
-						$a7 = 0;
-						$a2 = 0;
-						$a13 = 0;
-						break;
-					default:
-						((uint32 *)&wDevCtrl)[99] += 1;
-						break;
-				}
-
-				((uint32 *)&wDevCtrl)[97] += 1;
-			} else {
-				if ($a13 == 0) {
-					$a7 = 0;
-					$a2 = 0;
-					$a13 = ((uint8 *)0x3ffeff5c)[100];
-					$a0 = 1;
-					$a13 -= 1;
-
-					if ($a13 != 0)
-						$a13 = $a0;
-				}
-			}
-		}
-	} else {
-		$a7 = 0;
-		$a2 = 0;
-		$a13 = 1;
-	}
-
+_0x40103c23:
+	((uint32 *)&wDevCtrl)[95] += 1;
+	$a2 = 1;
+	goto _0x40103c2d;
+	
+_0x40103c2d:
 	$a9 = &wDevCtrl;
 	$a10 = wDevCtrl.f_2;
 	$a9 = wDevCtrl.f_0;
 	$a9 += $a10;
 
-	if ($a9 < 2) {
-		$a10 = 1;
+	if ($a9 >= 2)
+		goto _0x40103c42;
 
-		if ($a2 == 0)
-			$a13 = $a10;
-	}
+	$a10 = 1;
 
-	if ($a13 == 0) {
-		$a13 = 0x00ffffff;
-		$a11 = arg1->f_b12;	/* volatile? */
+	if ($a2 == 0)
+		$a13 = $a10;
 
-		if ($a11 == 0) {
-			ets_printf("%s %u\n", "wdev.c", 557);
-			while (1);
-		}
+	goto _0x40103c42;
 
-		$a4 = $a12;
-		$a3 = $a14;
-		$a2 = $a15;
-		$a5 = a1_24;
-		$a6 = a1_0;
-		_0x40103aa4($a15, $a14, $a12, a1_24, a1_0);	/* <trc_NeedRTS+0x154> */
-		return;
-	}
+_0x40103c42:
+	if ($a13 == 0)
+		goto _0x40103c4e;
 
 	$a2 = $a12;
 	$a3 = a1_24;
 	_0x40103b24($a12, a1_24);
 	return;
+
+_0x40103c4e:
+	$a13 = 0x00ffffff;
+	$a11 = arg1->f_b12;	/* volatile? */
+
+	if ($a11 == 0) {
+		ets_printf("%s %u\n", "wdev.c", 557);
+		while (1);
+	}
+
+	$a4 = $a12;
+	$a3 = $a14;
+	$a2 = $a15;
+	$a5 = a1_24;
+	$a6 = a1_0;
+	_0x40103aa4($a15, $a14, $a12, a1_24, a1_0);
+	return;
+
+_0x40103c99:
+	if (sniff_buf->rx_ctrl.bssidmatch0)
+		goto _0x40103ca2;
+
+	$a13 = sniff_buf->rx_ctrl.bssidmatch1;
+
+	if ($a13 == 0)
+		goto _0x40103d49;
+
+	goto _0x40103ca2;
+
+_0x40103ca2:
+	$a7 = $a2 & 0x0f;
+
+	/* this is probably a switch statement */
+	if ($a7 == 0)
+		goto _0x40103d0c;
+
+	if ($a7 == 4)
+		goto _0x40103cb6;
+
+	if ($a7 == 8)
+		goto _0x40103d24;
+
+	/* default */
+	((uint32 *)&wDevCtrl)[99] += 1;
+	goto _0x40103cb6;
+
+_0x40103cb6:
+	$a7 = 0;
+	$a2 = 0;
+	$a13 = 1;
+	goto _0x40103cc5;
+
+_0x40103cbf:
+	$a7 = 0;
+	$a13 = 0;
+	goto _0x40103cc3;
+
+_0x40103cc3:
+	$a2 = 1;
+	goto _0x40103cc5;
+
+_0x40103cc5:
+	((uint32 *)&wDevCtrl)[97] += 1;
+	goto _0x40103c2d;
+
+_0x40103cd0:
+	$a4 = $a2 & $a11;
+
+	if ($a4 != 128)
+		goto _0x40103cd9;
+
+	goto _0x40103d5d;
+
+_0x40103cd9:
+	$a7 = 0;
+	$a13 = 0;
+	goto _0x40103c23;
+
+_0x40103ce0:
+	$a2 &= $a11;
+	$a5 = $a2 - 128;
+
+	if ($a5 == 0)
+		goto _0x40103d84;
+
+	$a6 = 144;
+	$a6 = $a2 - $a6;
+
+	if ($a6 == 0)
+		goto _0x40103d9c;
+
+	$a7 = 160;
+	$a7 = $a2 - $a7;
+
+	if ($a7 == 0)
+		goto _0x40103d8f;
+
+	((uint32 *)&wDevCtrl)[94] += 1;
+	goto _0x40103d03;
+
+_0x40103d03:
+	$a13 = 1;
+	goto _0x40103d05;
+
+_0x40103d05:
+	$a7 = 0;
+	$a2 = 0;
+	goto _0x40103c2d;
+
+_0x40103d0c:
+	$a2 &= 0xff;
+
+	if ($a2 == 64)
+		goto _0x40103cbf;
+
+	$a9 = 80;
+
+	if ($a2 == $a9)
+		goto _0x40103d1d;
+
+	$a10 = $a2 - 128;
+
+	if ($a10 == 0)
+		goto _0x40103da7;
+
+	goto _0x40103d1d;
+
+_0x40103d1d:
+	$a7 = 0;
+	$a13 = 1;
+	goto _0x40103cc3;
+
+_0x40103d24:
+	$a7 = 0;
+	$a2 = 0;
+	$a13 = 0;
+	goto _0x40103cc5;
+
+_0x40103d2d:
+	$a0 = &wDevCtrl;
+	((uint32 *)&wDevCtrl)[96] += 1;
+	$a2 = $a13;
+	rcUpdateDataRxDone($a2);
+
+	$a7 = 0;
+	$a2 = 0;
+	$a13 = 0;
+	goto _0x40103c2d;
+
+_0x40103d49:
+	$a7 = 0;
+	$a2 = 0;
+	$a13 = ((uint8 *)0x3ffeff5c)[100];
+	$a0 = 1;
+	$a13 -= 1;
+
+	if ($a13 != 0)
+		$a13 = $a0;
+
+	goto _0x40103c2d;
+
+_0x40103d5d:
+	if ($a10 == 0)
+		goto _0x40103c1f;
+
+	$a4 = a1_28;
+	$a5 = 1;
+	$a13 = 0;
+
+	if ($a4 == 0)
+		$a13 = $a5;
+
+	if ($a4 == 0)
+		goto _0x40103dd6;
+
+	$a2 = phy_get_bb_freqoffset();
+	$a0 = &wDevCtrl;
+	$a7 = $a2 << 16;
+	(signed)$a7 >>= 16;	/* srai 16 instead of srli 16 */
+	goto _0x40103c23;
+
+_0x40103d84:
+	((uint32 *)&wDevCtrl)[91] += 1;
+	goto _0x40103d03;
+
+_0x40103d8f:
+	$a13 = 0;
+	((uint32 *)&wDevCtrl)[93] += 1;
+	goto _0x40103d05;
+
+_0x40103d9c:
+	((uint32 *)&wDevCtrl)[92] += 1;
+	goto _0x40103d03;
+
+_0x40103da7:
+	$a11 = a1_28;
+	$a3 = 1;
+	$a13 = 0;
+
+	if ($a11 == 0)
+		$a13 = $a3;
+
+	if ($a11 == 0)
+		goto _0x40103dc4;
+
+	$a2 = phy_get_bb_freqoffset();
+	$a0 = &wDevCtrl;
+	$a7 = $a2 << 16;
+	(signed)$a7 >>= 16;	/* srai 16 instead of srli 16 */
+	goto _0x40103dc6;
+
+_0x40103dc4:
+	$a7 = 0;
+	goto _0x40103dc6;
+
+_0x40103dc6:
+	$a8 = a1_28;
+
+	if ($a8 == 0)
+		goto _0x40103cc3;
+
+	((uint32 *)&wDevCtrl)[98] += 1;
+	goto _0x40103cc3;
+
+_0x40103dd6:
+	$a7 = 0;
+	goto _0x40103c23;
+
 }
 
 void wDev_ProcessFiq()
