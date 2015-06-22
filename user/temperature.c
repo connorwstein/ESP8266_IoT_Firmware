@@ -149,10 +149,14 @@ void ICACHE_FLASH_ATTR Temperature_get_temperature(struct espconn *conn)
     PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO2_U);	
 	ets_uart_printf("GPIO2 after PIN_PULLUP_EN: %d\n",GPIO_INPUT_GET(BIT2)); //READS pin 1=high 3.3V
 	os_delay_us(INITIAL_DELAY);
+	read();
+	os_delay_us(INITIAL_DELAY);
+	read();
+	os_delay_us(INITIAL_DELAY);
 	char buff[20];
-	memcpy(buff,&DHT,sizeof DHT);
 	if(read()!=-1){
-		ets_uart_printf("Sending Humidity: %d Temperature%d\n",DHT.humidity,DHT.temperature);
+		memcpy(buff,&DHT,sizeof DHT);
+		ets_uart_printf("Sending Humidity: %d Temperature: %d\n",DHT.humidity,DHT.temperature);
 		espconn_sent(conn, (uint8 *)buff, os_strlen(buff));
 	}
 }
