@@ -25,7 +25,6 @@ void print_dht(unsigned char* data){
 		data_compressed[i/16]<<=1;
 		data_compressed[i/16]|=data[i];
 	}
-
 	ets_uart_printf("Humidity: %d Temp: %d\n\n",data_compressed[0],data_compressed[1]);
 }
 
@@ -145,7 +144,7 @@ void ICACHE_FLASH_ATTR user_init()
 	read();
 	os_delay_us(2000000);
 	read();
-	os_delay_us(2000000);
+	os_delay_us(2000001);
 	read();
 
 	// static ETSTimer dhtTimer;
