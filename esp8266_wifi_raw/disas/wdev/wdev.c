@@ -140,6 +140,7 @@ static void _0x4010462c()
 		while (1);
 	}
 
+	/* XXX isn't channel 4-bits? How can you AND it with 0xf0? */
 	rx_ctl_new_p->channel = (rx_ctl_new_p->channel & 0xf0) | (((uint8 *)$a2)[6] & 0x0f);
 
 	if (rx_ctl_new_p->sig_mode == 0)
@@ -208,6 +209,7 @@ static void _0x40104700()
 		while (1);
 	}
 
+	/* XXX isn't channel 4-bits? How can you AND it with 0xf0? */
 	rx_ctl_new_p->channel = (rx_ctl_new_p->channel & 0xf0) | (((uint8 *)$a2)[6] & 0x0f);
 
 	if (rx_ctl_new_p->sig_mode == 0)
@@ -391,15 +393,57 @@ static void _0x40104838()
 }
 
 /* <trc_NeedRTS+0x154> */
-static void _0x40103aa4()
+static void _0x40103aa4(void *arg1, uint32 arg2, struct _wdev_ctrl_sub1 *arg3, uint32 arg4, uint32 arg5, uint32 arg6)
 {
 	// stub
+	uint32 a1_8;		/* $a1 + 8 */	/* = arg1 */
+	uint32 a1_4 = arg5;	/* $a1 + 4 */
+	uint32 a1_0 = arg6;	/* $a1 + 0 */
+
+	$a9 = arg1;
+	$a2 = 7;
+	$a13 = arg4;
+	$a14 = arg3;
+	a1_8 = $a9;
+
+	$a12 = $a2 = esf_rx_buf_alloc(7);
+
+	if ($a2 == NULL) {
+		$a2 = $a14;
+		$a3 = $a13;
+		_0x40103b24($a14, $a13);	/* <trc_NeedRTS+0x1d4> */
+		return;
+	}
+
+	$a4 = &wDevCtrl;
+	$a6 = ((uint32 **)$a2)[9];	/* wat? esf_buf [36] ? */
+	$a5 = a1_4;
+	((uint32 *)$a6)[1] = $a5;
+	$a5 = a1_8;
+	((uint32 *)$a6)[2] = $a5;
+	$a4 = wDevCtrl.f_8;
+	((uint32 **)$a2)[2] = $a14;
+	((uint32 **)$a2)[1] = $a4;
+	((uint16 *)$a2)[6] = $a13;
+	$a4 = wDevCtrl.f_8->f_4;
+	((uint32 **)$a2)[4] = $a4;
+	$a3 = 191;
+	$a2 = ((volatile uint8 *)$a14)[3];
+	$a2 &= $a3;
+	$a3 = $a14;
+	((volatile uint8 *)$a14)[3] = $a2;
+
+	$a0 = a1_0;
+	$a2 = $a13;
+	((uint16 *)$a12)[12] = $a0;
+	_0x40103a14();	/* <trc_NeedRTS+0xc4> */
+	$a2 = $a12;
+	lmacRxDone();
 }
 
 /* <trc_NeedRTS+0x240> */
 static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, uint32 arg4)
 {
-	// stub
 	struct sniffer_buf *sniff_buf;	/* $a13 */
 	uint32 a1_28;	/* $a1 + 28 */
 	uint32 a1_24;	/* $a1 + 24 */
@@ -410,8 +454,6 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 	a1_28 = arg4;
 
 	sniff_buf = wDevCtrl.f_8->f_4;
-	$a14 = sniff_buf->rx_ctrl.Aggregation;
-	$a12 = arg1;
 
 	if (($a15 = chm_get_current_channel()) == NULL) {
 		ets_printf("%s %u\n", "wdev.c", 371);
@@ -419,67 +461,44 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 	}
 
 	$a2 = *(uint16 *)(sniff_buf->rx_ctrl.buf); /* Frame Control field in IEEE-802.11 frames */
-	$a0 = ((uint8 *)$a15)[6];
-	$a3 = sniff_buf->rx_ctrl.channel;
-	$a11 = 240;
-	$a3 &= 240;
-	$a0 &= 0x0f;
-	$a0 |= $a3;
-	sniff_buf->rx_ctrl.channel = $a0;
 
-	if ($a14 == 0) {
-		$a0 = &wDevCtrl;
-		$a10 = sniff_buf->rx_ctrl.damatch0;	/* $a9 = sniff_buf->rx_ctrl .byte 3 */
+	/* XXX isn't channel 4-bits? how can you AND it with 0xf0 ?*/
+	$a0 = sniff_buf->rx_ctrl.channel = (sniff_buf->rx_ctrl.channel & 0xf0) | (((uint8 *)$a15)[6] & 0x0f);
 
+	if (sniff_buf->rx_ctrl.Aggregation == 0) {
 		if (sniff_buf->rx_ctrl.damatch0 || sniff_buf->rx_ctrl.damatch1) {
-			$a7 = $a2 & 0x0f;	/* subtype in frame control? */
-
-			switch ($a7) {
+			/* Type in frame control? */
+			switch ($a2 & 0x0f) {
 				case 0:
-					$a4 = $a2 & $a11;
-
-					if ($a4 == 128) {
-						if ($a10 == 0) {
+					/* Subtype in frame control? */
+					if ($a2 & 0xf0 == 128) {
+						if (sniff_buf->rx_ctrl.damatch0 == 0 || arg4 == 0) {
 							$a7 = 0;
 							$a13 = 1;
 						} else {
-							$a4 = a1_28;
-							$a5 = 1;
+							$a7 = (signed uint16)phy_get_bb_freqoffset();
 							$a13 = 0;
-
-							if ($a4 == 0)
-								$a13 = $a5;
-
-							if ($a4 == 0) {
-								$a7 = 0;
-							} else {
-								$a2 = phy_get_bb_freqoffset();
-								$a0 = &wDevCtrl;
-								$a7 = $a2 << 16;
-								(signed)$a7 >>= 16;	/* srai 16 instead of srli 16 */
-							}
 						}
 					} else {
 						$a7 = 0;
 						$a13 = 0;
 					}
 
-					((uint32 *)&wDevCtrl)[95] += 1;
 					$a2 = 1;
+					((uint32 *)&wDevCtrl)[95] += 1;
 					break;
 
 				case 4:
-					$a2 &= $a11;
-
-					switch ($a2) {
+					/* Subtype in frame control? */
+					switch ($a2 & 0xf0) {
 						case 128:
-							((uint32 *)&wDevCtrl)[91] += 1;
 							$a13 = 1;
+							((uint32 *)&wDevCtrl)[91] += 1;
 							break;
 
 						case 144:
-							((uint32 *)&wDevCtrl)[92] += 1;
 							$a13 = 1;
+							((uint32 *)&wDevCtrl)[92] += 1;
 							break;
 
 						case 160:
@@ -488,113 +507,94 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 							break;
 
 						default:
+							$a13 = 1;
 							((uint32 *)&wDevCtrl)[94] += 1;
+							break;
+					}
+
+					$a2 = 0;
+					$a7 = 0;
+					break;
+
+				case 8:
+					((uint32 *)&wDevCtrl)[96] += 1;
+					rcUpdateDataRxDone(sniff_buf);
+
+					$a2 = 0;
+					$a7 = 0;
+					$a13 = 0;
+					break;
+
+				default:
+					$a2 = 0;
+					$a7 = 0;
+					$a13 = 1;
+					((uint32 *)&wDevCtrl)[99] += 1;
+					break;
+			}
+		} else if (sniff_buf->rx_ctrl.bssidmatch0 || sniff_buf->rx_ctrl.bssidmatch1) {
+			/* Type in frame control? */
+			switch ($a2 & 0x0f) {
+				case 0:
+					/* Subtype in frame control? (here 0xff same as 0xf0 since $a2 & 0x0f == 0) */
+					switch ($a2 & 0xff) {
+						case 64:
+							$a7 = 0;
+							$a13 = 0;
+							break;
+
+						case 80:
+							$a7 = 0;
+							$a13 = 1;
+							break;
+
+						case 128:
+							if (arg4 == 0)
+								$a7 = 0;
+								$a13 = 1;
+							} else {
+								$a7 = (signed uint16)phy_get_bb_freqoffset();
+								$a13 = 0;
+								((uint32 *)&wDevCtrl)[98] += 1;
+							}
+
+							break;
+
+						default:
+							$a7 = 0;
 							$a13 = 1;
 							break;
 					}
 
-					$a7 = 0;
+					$a2 = 1;
+					break;
+
+				case 4:
 					$a2 = 0;
+					$a7 = 0;
+					$a13 = 1;
 					break;
 
 				case 8:
-					$a0 = &wDevCtrl;
-					((uint32 *)&wDevCtrl)[96] += 1;
-					$a2 = $a13;
-					rcUpdateDataRxDone($a2);
-
-					$a7 = 0;
 					$a2 = 0;
+					$a7 = 0;
 					$a13 = 0;
 					break;
 
 				default:
 					((uint32 *)&wDevCtrl)[99] += 1;
-					$a7 = 0;
-					$a2 = 0;
-					$a13 = 1;
 					break;
 			}
-		} else {
-			if (sniff_buf->rx_ctrl.bssidmatch0 || sniff_buf->rx_ctrl.bssidmatch1) {
-				$a7 = $a2 & 0x0f;
 
-				switch ($a7) {
-					case 0:
-						$a2 &= 0xff;
+			((uint32 *)&wDevCtrl)[97] += 1;
+		} else if (sniffer_buf->rx_ctrl.bssidmatch1 == 0) {
+			$a2 = 0;
+			$a7 = 0;
 
-						switch ($a2) {
-							case 64:
-								$a7 = 0;
-								$a13 = 0;
-								break;
-
-							case 80:
-								$a7 = 0;
-								$a13 = 1;
-								break;
-
-							case 128:
-								$a11 = a1_28;
-								$a3 = 1;
-								$a13 = 0;
-
-								if ($a11 == 0)
-									$a13 = $a3;
-
-								if ($a11 == 0) {
-									$a7 = 0;
-								} else {
-									$a2 = phy_get_bb_freqoffset();
-									$a0 = &wDevCtrl;
-									$a7 = $a2 << 16;
-									(signed)$a7 >>= 16;	/* srai 16 instead of srli 16 */
-								}
-
-								$a8 = a1_28;
-
-								if ($a8 != 0)
-									((uint32 *)&wDevCtrl)[98] += 1;
-
-								break;
-
-							default:
-								$a7 = 0;
-								$a13 = 1;
-								break;
-						}
-
-						$a2 = 1;
-						break;
-
-					case 4:
-						$a7 = 0;
-						$a2 = 0;
-						$a13 = 1;
-						break;
-					case 8:
-						$a7 = 0;
-						$a2 = 0;
-						$a13 = 0;
-						break;
-					default:
-						((uint32 *)&wDevCtrl)[99] += 1;
-						break;
-				}
-
-				((uint32 *)&wDevCtrl)[97] += 1;
-			} else {
-				if ($a13 == 0) {
-					$a7 = 0;
-					$a2 = 0;
-					$a13 = ((uint8 *)0x3ffeff5c)[100];
-					$a0 = 1;
-					$a13 -= 1;
-
-					if ($a13 != 0)
-						$a13 = $a0;
-				}
-			}
+			if (((uint8 *)0x3ffeff5c)[100] == 1)
+				$a13 = 0;
+			else
+				$a13 = 1;
 		}
 	} else {
 		$a7 = 0;
@@ -602,40 +602,23 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 		$a13 = 1;
 	}
 
-	$a9 = &wDevCtrl;
-	$a10 = wDevCtrl.f_2;
-	$a9 = wDevCtrl.f_0;
-	$a9 += $a10;
-
-	if ($a9 < 2) {
-		$a10 = 1;
-
+	if (wDevCtrl.f_0 + wDevCtrl.f_0 < 2) {
 		if ($a2 == 0)
-			$a13 = $a10;
+			$a13 = 1;
 	}
 
 	if ($a13 == 0) {
-		$a13 = 0x00ffffff;
-		$a11 = arg1->f_b12;	/* volatile? */
-
-		if ($a11 == 0) {
+		/* volatile? */
+		if (arg1->f_b12 == 0) {
 			ets_printf("%s %u\n", "wdev.c", 557);
 			while (1);
 		}
 
-		$a4 = $a12;
-		$a3 = $a14;
-		$a2 = $a15;
-		$a5 = a1_24;
-		$a6 = a1_0;
-		_0x40103aa4($a15, $a14, $a12, a1_24, a1_0);	/* <trc_NeedRTS+0x154> */
+		_0x40103aa4($a15, sniff_buf->rx_ctrl.Aggregation, arg1, arg2, arg3, $a7);	/* <trc_NeedRTS+0x154> */
 		return;
 	}
 
-	$a2 = $a12;
-	$a3 = a1_24;
-	_0x40103b24($a12, a1_24);
-	return;
+	_0x40103b24(arg1, arg2);
 }
 
 void wDev_ProcessFiq()
