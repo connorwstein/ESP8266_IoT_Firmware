@@ -2,14 +2,16 @@
 #include "osapi.h"
 #include "ip_addr.h"
 #include "espconn.h"
-
+#include "eagle_soc.h"
+#include "gpio.h"
 #include "debug.h"
+#include "mem.h"
 
 #define INITIAL_DELAY 2000000
 #define INITIATE_PROTOCOL_DELAY 20000
 #define MAX_READ_TIME 4000
-#define READ_BUFFER_SIZE=42; //buffer for the 40 data bits, with some extra space for the initial response signals
-#define DATA_BIT_HIGH_THRESHOLD=18; //number of ones in a row that indicates a bit high, 
+#define READ_BUFFER_SIZE 42 //buffer for the 40 data bits, with some extra space for the initial response signals
+#define DATA_BIT_HIGH_THRESHOLD 18 //number of ones in a row that indicates a bit high, 
 //note that this depends on the code in the while loop of the read function, if that loop takes longer to execute i.e. code is added
 //to it, this value may change
 typedef struct dht{
@@ -148,9 +150,9 @@ void ICACHE_FLASH_ATTR Temperature_get_temperature(struct espconn *conn)
 	ets_uart_printf("GPIO2 after PIN_PULLUP_EN: %d\n",GPIO_INPUT_GET(BIT2)); //READS pin 1=high 3.3V
 	os_delay_us(INITIAL_DELAY);
 	char buff[20];
-	memcpy(buff,dht,sizeof dht);
+	memcpy(buff,&DHT,sizeof DHT);
 	if(read()!=-1){
 		ets_uart_printf("Sending Humidity: %d Temperature%d\n",DHT.humidity,DHT.temperature);
-		espconn_sent(conn, (uint8 *)buff, os_strlen(buff))
+		espconn_sent(conn, (uint8 *)buff, os_strlen(buff));
 	}
 }

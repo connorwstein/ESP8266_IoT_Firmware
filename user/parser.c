@@ -76,9 +76,7 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 
 	switch (config.type) {
 		case TEMPERATURE:
-			if (os_strcmp(cmd, "Temperature Set") == 0)
-				Temperature_set_temperature(atoi(params));	
-			else if (os_strcmp(cmd, "Temperature Get") == 0)
+			if (os_strcmp(cmd, "Temperature Get") == 0)
 				Temperature_get_temperature((struct espconn *)arg);
 			else if (os_strcmp(cmd, "Hello Temperature Devices?") == 0)
 				udp_send_ipmac((struct espconn *)arg);
