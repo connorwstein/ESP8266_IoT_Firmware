@@ -682,7 +682,7 @@ void wDev_ProcessFiq()
 
 				/* Possibly what happens is that there are multiple packets in a queue
 				   which belong to the same bigger packet (fragmented?), and the last such
-				   packet is noted by a 1 in the f_3 field of _wdev_ctrl_sub1.
+				   packet is noted by a 1 in the f_b24 field of _wdev_ctrl_sub1.
 				   So the nested while loop finds the last fragment of the packet.
 				   They check if this last fragment is also the last packet in total ($a14).
 				   If it is, they stop, otherwise they continue over the next fragmented packet.
