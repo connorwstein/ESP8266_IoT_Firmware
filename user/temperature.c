@@ -43,7 +43,7 @@ void ICACHE_FLASH_ATTR set_dht(unsigned char* data){
 
 bool ICACHE_FLASH_ATTR checksum(unsigned char *data){
 	data+=2; //skip the first 2 protocol bits
-	unsigned char data_bytes[5];
+	unsigned char data_bytes[5]; //40 data bits --> 5 bytes
 	memset(data_bytes,0,sizeof data_bytes);
 	int i;
 	for(i=0;i<READ_BUFFER_SIZE-2;i++){
@@ -59,7 +59,7 @@ bool ICACHE_FLASH_ATTR checksum(unsigned char *data){
 
 unsigned char* ICACHE_FLASH_ATTR get_data_bits(unsigned char *raw_data, int size){
 	int i;
-	ets_uart_printf("\n\nDATA: ");
+	//ets_uart_printf("\n\nDATA: ");
 	unsigned char *data=(unsigned char*)os_zalloc(READ_BUFFER_SIZE*sizeof(char));
 	memset(data,0,sizeof data);
 	int ones_counter=0;
@@ -82,7 +82,8 @@ unsigned char* ICACHE_FLASH_ATTR get_data_bits(unsigned char *raw_data, int size
 			else{
 				data[data_index]=0;
 			}
-			ets_uart_printf("%d",data[data_index++]);
+			//ets_uart_printf("%d",data[data_index++]);
+			data_index++;
 			ones_counter=0; //reset the counter
 			ones_streak=false;
 		}
@@ -101,7 +102,7 @@ int ICACHE_FLASH_ATTR read(void){
     ets_uart_printf("GPIO2 %d for 20ms\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
     os_delay_us(INITIATE_PROTOCOL_DELAY); //Keep it high for a while before initiating.
     GPIO_OUTPUT_SET(2, 0);
-    ets_uart_printf("GPIO2 %d delay for 20ms\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
+    ets_uart_printf("GPIO2 %d for 20ms\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
     os_delay_us(INITIATE_PROTOCOL_DELAY); //Tbe in data sheet. Host the start signal down time. Using the max of 20ms.
     GPIO_DIS_OUTPUT(2); //When you disable output mode (i.e. switch to input), the pull up resistor on the SDA data will cause the line to go high 
     //ets_uart_printf("GPIO2 %d delay for 40us\n",GPIO_INPUT_GET(2)); //READS pin 1=high 3.3V
@@ -154,5 +155,8 @@ void ICACHE_FLASH_ATTR Temperature_get_temperature(struct espconn *conn)
 		ets_uart_printf("Buff %s\n",buff);
 		ets_uart_printf("Sending Humidity: %d Temperature: %d\n",DHT.humidity,DHT.temperature);
 		espconn_sent(conn, (uint8 *)buff, 10);
+	}
+	else{
+		ets_uart_printf("Error getting temperature from the device\n");
 	}
 }
