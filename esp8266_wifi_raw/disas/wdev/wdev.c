@@ -393,52 +393,38 @@ static void _0x40104838()
 }
 
 /* <trc_NeedRTS+0x154> */
-static void _0x40103aa4(void *arg1, uint32 arg2, struct _wdev_ctrl_sub1 *arg3, uint32 arg4, uint32 arg5, uint32 arg6)
+static void _0x40103aa4(void *arg1, uint32 arg2, struct _wdev_ctrl_sub1 *arg3, uint16 arg4, uint32 arg5, uint16 arg6)
 {
-	// stub
-	uint32 a1_8;		/* $a1 + 8 */	/* = arg1 */
+	void *a1_8 = arg1;	/* $a1 + 8 */	/* = arg1 */
 	uint32 a1_4 = arg5;	/* $a1 + 4 */
-	uint32 a1_0 = arg6;	/* $a1 + 0 */
+	uint16 a1_0 = arg6;	/* $a1 + 0 */
+	void *esf_buf;		/* $a12 */
 
-	$a9 = arg1;
 	$a2 = 7;
-	$a13 = arg4;
-	$a14 = arg3;
-	a1_8 = $a9;
+	esf_buf = esf_rx_buf_alloc(7);	/* what is 7? */
 
-	$a12 = $a2 = esf_rx_buf_alloc(7);
-
-	if ($a2 == NULL) {
-		$a2 = $a14;
-		$a3 = $a13;
-		_0x40103b24($a14, $a13);	/* <trc_NeedRTS+0x1d4> */
+	if (esf_buf == NULL) {
+		_0x40103b24(arg3, arg4);	/* <trc_NeedRTS+0x1d4> */
 		return;
 	}
 
-	$a4 = &wDevCtrl;
-	$a6 = ((uint32 **)$a2)[9];	/* wat? esf_buf [36] ? */
-	$a5 = a1_4;
-	((uint32 *)$a6)[1] = $a5;
-	$a5 = a1_8;
-	((uint32 *)$a6)[2] = $a5;
-	$a4 = wDevCtrl.f_8;
-	((uint32 **)$a2)[2] = $a14;
-	((uint32 **)$a2)[1] = $a4;
-	((uint16 *)$a2)[6] = $a13;
-	$a4 = wDevCtrl.f_8->f_4;
-	((uint32 **)$a2)[4] = $a4;
-	$a3 = 191;
-	$a2 = ((volatile uint8 *)$a14)[3];
-	$a2 &= $a3;
-	$a3 = $a14;
-	((volatile uint8 *)$a14)[3] = $a2;
+	$a6 = ((uint32 **)esf_buf)[9];	/* wat? esf_buf [36] ? */
+	((uint32 *)$a6)[1] = arg5;
+	((void **)$a6)[2] = arg1;
+	((struct _wdev_ctrl_sub1 **)esf_buf)[2] = arg3;
+	((struct _wdev_ctrl_sub1 **)esf_buf)[1] = wDevCtrl.f_8;
+	((uint16 *)esf_buf)[6] = arg4;
+	((struct sniffer_buf **)esf_buf)[4] = wDevCtrl.f_8->f_4;
+	*((volatile uint8 *)(&(arg3->f_b24)) &= 0xbf;	/* 10111111 */
 
-	$a0 = a1_0;
-	$a2 = $a13;
-	((uint16 *)$a12)[12] = $a0;
-	_0x40103a14();	/* <trc_NeedRTS+0xc4> */
-	$a2 = $a12;
-	lmacRxDone();
+	((uint16 *)$a12)[12] = arg6;
+
+	$a3 = arg3;
+	$a2 = arg4;
+	_0x40103a14(arg4, arg3);	/* <trc_NeedRTS+0xc4> */
+
+	$a2 = esf_buf;
+	lmacRxDone(esf_buf);
 }
 
 /* <trc_NeedRTS+0x240> */
@@ -467,11 +453,20 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 
 	if (sniff_buf->rx_ctrl.Aggregation == 0) {
 		if (sniff_buf->rx_ctrl.damatch0 || sniff_buf->rx_ctrl.damatch1) {
+			/* Note: the bit ordering confused me here.
+				 I think the way to read it is, |proto|type |  subtype  |  ...
+								0  1  2  3  4  5  6  7  8  ...
+				 so the bits at position i in the first FC byte are stored
+				 as the i-th bit (from LSB) in the buffer data byte.
+				 Example: a frame of type Control and subtype CTS would have,
+					  in an IEEE 802.11 frame, the first FC byte: |00|10|0011|
+					  (where the bits are in little-endian, i.e. from bit0 to bit7 left-to-right).
+					  In the buffer, this would correspond to the byte 1100 0100 = 0xc4 */
 			/* Type in frame control? */
 			switch ($a2 & 0x0f) {
-				case 0:
+				case 0:	/* Management frame: |00|00|xxxx| */
 					/* Subtype in frame control? */
-					if ($a2 & 0xf0 == 128) {
+					if ($a2 & 0xf0 == 128) {	/* Beacon: 1000 0000 = |00|00|0001| */
 						if (sniff_buf->rx_ctrl.damatch0 == 0 || arg4 == 0) {
 							$a7 = 0;
 							$a13 = 1;
@@ -479,7 +474,7 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 							$a7 = (signed uint16)phy_get_bb_freqoffset();
 							$a13 = 0;
 						}
-					} else {
+					} else {			/* Not beacon */
 						$a7 = 0;
 						$a13 = 0;
 					}
@@ -488,20 +483,20 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 					((uint32 *)&wDevCtrl)[95] += 1;
 					break;
 
-				case 4:
+				case 4:	/* Control frame: |00|10|xxxx| */
 					/* Subtype in frame control? */
 					switch ($a2 & 0xf0) {
-						case 128:
+						case 128:	/* Block Ack Request: 1000 0100 = |00|10|0001| */
 							$a13 = 1;
 							((uint32 *)&wDevCtrl)[91] += 1;
 							break;
 
-						case 144:
+						case 144:	/* Block Ack: 1001 0100 = |00|10|1001| */
 							$a13 = 1;
 							((uint32 *)&wDevCtrl)[92] += 1;
 							break;
 
-						case 160:
+						case 160:	/* PS-Poll: 1010 0100 = |00|10|0101| */
 							$a13 = 0;
 							((uint32 *)&wDevCtrl)[93] += 1;
 							break;
@@ -516,7 +511,7 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 					$a7 = 0;
 					break;
 
-				case 8:
+				case 8:	/* Data frame: |00|01|xxxx| */
 					((uint32 *)&wDevCtrl)[96] += 1;
 					rcUpdateDataRxDone(sniff_buf);
 
@@ -525,7 +520,7 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 					$a13 = 0;
 					break;
 
-				default:
+				default:/* Reserved */
 					$a2 = 0;
 					$a7 = 0;
 					$a13 = 1;
@@ -535,20 +530,20 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 		} else if (sniff_buf->rx_ctrl.bssidmatch0 || sniff_buf->rx_ctrl.bssidmatch1) {
 			/* Type in frame control? */
 			switch ($a2 & 0x0f) {
-				case 0:
+				case 0:	/* Management frame: |00|00|xxxx| */
 					/* Subtype in frame control? (here 0xff same as 0xf0 since $a2 & 0x0f == 0) */
 					switch ($a2 & 0xff) {
-						case 64:
+						case 64:	/* Probe request: 0100 0000 = |00|00|0010| */
 							$a7 = 0;
 							$a13 = 0;
 							break;
 
-						case 80:
+						case 80:	/* Probe response: 0101 0000 = |00|00|1010| */
 							$a7 = 0;
 							$a13 = 1;
 							break;
 
-						case 128:
+						case 128:	/* Beacon: 1000 0000 = |00|00|0001| */
 							if (arg4 == 0)
 								$a7 = 0;
 								$a13 = 1;
@@ -569,19 +564,19 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 					$a2 = 1;
 					break;
 
-				case 4:
+				case 4:	/* Control frame: |00|10|xxxx| */
 					$a2 = 0;
 					$a7 = 0;
 					$a13 = 1;
 					break;
 
-				case 8:
+				case 8:	/* Data frame: |00|01|xxxx| */
 					$a2 = 0;
 					$a7 = 0;
 					$a13 = 0;
 					break;
 
-				default:
+				default:/* Reserved */
 					((uint32 *)&wDevCtrl)[99] += 1;
 					break;
 			}
@@ -607,6 +602,8 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 			$a13 = 1;
 	}
 
+	/* By this point, my theory is that $a13 is 0 if the packet should be forwarded to
+	   the higher layers of the networking stack, otherwise not. */
 	if ($a13 == 0) {
 		/* volatile? */
 		if (arg1->f_b12 == 0) {
