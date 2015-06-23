@@ -82,8 +82,8 @@ unsigned char* ICACHE_FLASH_ATTR get_data_bits(unsigned char *raw_data, int size
 			else{
 				data[data_index]=0;
 			}
-			//ets_uart_printf("%d",data[data_index++]);
-			data_index++;
+			ets_uart_printf("%d",data[data_index++]);
+			//data_index++;
 			ones_counter=0; //reset the counter
 			ones_streak=false;
 		}
@@ -121,9 +121,9 @@ int ICACHE_FLASH_ATTR read(void){
   		os_delay_us(1);
   	}
   	ets_uart_printf("DEVICE DONE\n");
-  	for(k=0;k<MAX_READ_TIME;k++){
-  		ets_uart_printf("%d",raw_data[k]);
-  	}
+  	// for(k=0;k<MAX_READ_TIME;k++){
+  	// 	ets_uart_printf("%d",raw_data[k]);
+  	// }
   	unsigned char* data=get_data_bits(raw_data,MAX_READ_TIME);
   	if(!checksum(data)){
   		goto fail;
