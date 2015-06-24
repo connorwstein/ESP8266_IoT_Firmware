@@ -7,26 +7,30 @@ struct _wdev_ctrl_sub1 {
 };
 
 /* total size of this struct should be 4 bytes */
-struct _wdev_ctrl_sub4 {
+struct _wdev_ctrl_sub3 {
 	unsigned:8		 f_b0;	/* Thing that should be 0 or between 224 and 252 */
 	unsigned:12		 f_b8;	/* length field? */
 	unsigned:12		 f_b20;
 };
 
-/* This might actually be pretty much the same as struct _wdev_ctrl_sub1 */
+/* This might actually be the same as struct _wdev_ctrl_sub1.
+   There are cases where a pointer to one is used as pointer to the other.
+   The only difference between these structs is that f_4 is a sniffer_buf
+   or a pointer to an array of _wdev_ctrl_sub3. */
 struct _wdev_ctrl_sub2 {
 	unsigned:12		 f_b0;
 	unsigned:12		 f_b12;	/* length field ?*/
 	unsigned:8		 f_b24;
-	struct _wdev_ctrl_sub4	*f_4;	/* Points to an array of these structs */
+	struct _wdev_ctrl_sub3	*f_4;	/* Points to an array of these structs */
 	struct _wdev_ctrl_sub2	*f_8;	/* pointer to next element in queue? */
 };
 
-/* Don't know much about this struct yet... */
-struct _wdev_ctrl_sub3 {
-	void			*f_8;
-};
-
+/* It is possible that some of the fields are part of separate structs
+   which have been declared as static, and are thus not associated with
+   a name in the symbol table. I can't really determine this, so for
+   now, every field referenced relatively to wDevCtrl is assumed to be
+   a subfield of this hypothetical _wdev_ctrl struct. This remark
+   also applies to most of the other struct reconstructions and pointer casts. */
 struct _wdev_ctrl {
 	/* stub... most of the fields I have no idea what they mean */
 	uint16			 f_0;	/* some counter ? */
@@ -34,24 +38,20 @@ struct _wdev_ctrl {
 	uint8			 f_4;	/* counter or flag? */
 	uint8			 f_5;	/* whether in promiscuous mode or not */
 	struct _wdev_ctrl_sub1	*f_8;	/* possibly a queue for sniffer bufs */
-	struct _wdev_ctrl_sub3	*f_12;
+	struct _wdev_ctrl_sub1	*f_12;
 	struct _wdev_ctrl_sub1	*f_16;	/* also a queue, move from here to f_8 */
-	struct _wdev_ctrl_sub3	*f_20;
-	void			*f_24;	/* Might be a struct (not a pointer), not sure yet... */
+	struct _wdev_ctrl_sub1	*f_20;
+
+	struct _wdev_ctrl_sub1	 f_24;	/* This could be a static struct... */
+
 	struct _wdev_ctrl_sub2	*f_48;
+	struct _wdev_ctrl_sub2	*f_52;
 	uint32			 f_356;	/* counts number of full packets? */
+	// bunch of counters, I'll add them later
 	// other fields...
 };
 
 struct _wdev_ctrl wDevCtrl;	/* XXX Don't know the size yet... */
-
-/* <wDev_MacTim1Arm+0x68> */
-static void _0x40103e64(uint32 arg1)
-{
-	/* arg1 can be 0 or 1 */
-	if (((void **)&tcb + 159)[arg1] != NULL)
-		((void (*)())(((void **)&tcb + 159)[arg1]))();
-}
 
 /* <trc_NeedRTS+0xc4> */
 static void _0x40103a14(uint16 arg1, struct _wdev_ctrl_sub1 *arg2)
@@ -90,308 +90,6 @@ static void _0x40103a14(uint16 arg1, struct _wdev_ctrl_sub1 *arg2)
 	}
 }
 
-/* <trc_NeedRTS+0x1d4> */
-static void _0x40103b24(struct _wdev_ctrl_sub1 *arg1, uint16 arg2)
-{
-	_0x40103a14(arg2, arg1);	/* <trc_NeedRTS+0xc4> */
-	wDev_AppendRxBlocks(wDevCtrl.f_8, arg1, arg2);
-}
-
-/* <trc_NeedRTS+0x204> */
-static void _0x40103b54(struct _wdev_ctrl_sub2 *arg1, uint8 arg2)
-{
-	wDevCtrl.f_48 = arg1->f_8;
-	arg1->f_8 = NULL;
-	wDevCtrl.f_4 -= arg2;
-	wDev_AppendRxAmpduLensBlocks(wDevCtrl.f_48, arg1);
-}
-
-/* <wDevDisableRx+0x34> */
-static void _0x4010462c()
-{
-	struct RxControl *rx_ctl_p;
-	struct RxControl *rx_ctl_new_p;
-
-	if (wDevCtrl.f_0 < 2)
-		return;
-
-	$a2 = ((volatile uint32 *)0x3ff1fe00)[142] & 0xff;
-
-	if ($a2 > 65 && !($a2 & (1 << 7)))
-		return;
-
-	rx_ctl_p = (struct RxControl *)(wDevCtrl.f_8->f_4);
-
-	if (rx_ctl_p->sig_mode == 0)
-		return;
-
-	if ((rx_ctl_p->CWB == 0) && (rx_ctl_p->MCS < 8) && (rx_ctl_p->FEC_CODING == 0))
-		return;
-
-	rx_ctl_new_p = pvPortMalloc(sizeof *rx_ctl_new_p); /* 12 bytes */
-
-	if (rx_ctl_new_p == NULL)
-		return;
-
-	ets_memcpy(rx_ctl_new_p, rx_ctl_p, sizeof *rx_ctl_p);
-
-	if (($a2 = chm_get_current_channel()) == NULL) {
-		ets_printf("%s %u\n", "wdev.c", 1862);
-		while (1);
-	}
-
-	/* XXX isn't channel 4-bits? How can you AND it with 0xf0? */
-	rx_ctl_new_p->channel = (rx_ctl_new_p->channel & 0xf0) | (((uint8 *)$a2)[6] & 0x0f);
-
-	if (rx_ctl_new_p->sig_mode == 0)
-		goto _0x401046a1;
-
-	if ((rx_ctl_new_p->CWB == 0) && (rx_ctl_new_p->MCS < 8) && (rx_ctl_new_p->FEC_CODING == 0))
-		goto _0x401046a1;
-
-	if (rx_ctl_new_p->MCS >= 32)
-		goto _0x401046a1;
-
-	if (pp_post2(32, 9, rx_ctl_new_p) != 1)
-		return;	/* memory leak? Did not free rx_ctl_new_p. Maybe freed in pp_post2. */
-
-	vPortFree(rx_ctl_new_p);
-	return;
-
-_0x401046a1:
-	vPortFree(rx_ctl_new_p);
-	return;
-}
-
-/* <wDevDisableRx+0x108> */
-static void _0x40104700()
-{
-	struct RxControl *rx_ctl_p;
-	struct RxControl *rx_ctl_new_p;
-
-	$a0 = ((volatile uint32 *)0x3ff20e00)[191];
-	$a3 = 29;	/* from machine instructions. Not sure... */
-
-	/* XXX $a3 is not even initialized here, wtf...
-		The calling function (wDev_ProcessFiq) sets $a3 to 4 at this point. */
-	while ($a3 >= ((volatile uint32 *)0x3ff20a00)[128] - $a0) {
-		if (((volatile uint32 *)0x3ff20a00)[135] & (1 << 2))
-			return;
-	}
-
-	if (((((volatile uint32 *)0x3ff1fe00)[245] >> 8) & 0xff) < 8)
-		return;
-
-	((volatile uint32 *)0x3ff20a00)[156] &= 0xfffffffd;	/* -3 in 32-bit unsigned hex */
-	
-	while ((((volatile uint32 *)0x3ff20a00)[135] & (1 << 2)) != 0);
-
-	if (wDevCtrl.f_0 < 2)
-		goto _0x40104794;
-
-	((volatile uint32 *)0x3ff20a00)[137] = 4;
-
-	$a2 = ((volatile uint32 *)0x3ff1fe00)[142] & 0xff;
-
-	if (($a2 > 65) && !($a2 & (1 << 7)))
-		goto _0x40104794;
-
-	rx_ctl_p = (struct RxControl *)(wDevCtrl.f_8->f_4);
-	rx_ctl_new_p = pvPortMalloc(sizeof *rx_ctl_new_p);
-
-	if (rx_ctl_new_p == NULL)
-		goto _0x40104794;
-
-	ets_memcpy(rx_ctl_new_p, rx_ctl_p, sizeof *rx_ctl_p);
-	
-	if (($a2 = chm_get_current_channel()) == NULL) {
-		ets_printf("%s %u\n", "wdev.c", 1922);
-		while (1);
-	}
-
-	/* XXX isn't channel 4-bits? How can you AND it with 0xf0? */
-	rx_ctl_new_p->channel = (rx_ctl_new_p->channel & 0xf0) | (((uint8 *)$a2)[6] & 0x0f);
-
-	if (rx_ctl_new_p->sig_mode == 0)
-		goto _0x40104829;
-
-	if ((rx_ctl_new_p->CWB == 0) && (rx_ctl_new_p->MCS < 8))
-		goto _0x40104829;
-
-	if (rx_ctl_new_p->MCS >= 32)
-		goto _0x40104829;
-
-	if (pp_post2(32, 9, rx_ctl_new_p) != 1)
-		goto _0x40104794;	/* possible memory leak if rx_ctl_new_p not freed */
-
-	vPortFree(rx_ctl_new_p);
-	goto _0x40104794;
-
-_0x40104829:
-	vPortFree(rx_ctl_new_p);
-
-_0x40104794:
-	((volatile uint32 *)0x3ff20a00)[156] |= (1 << 1);
-}
-
-/* <wDevDisableRx+0x240> */
-static void _0x40104838()
-{
-	struct sniffer_buf *sniff_buf;	/* $a12 */
-	struct sniffer_buf *new_buf;	/* $a13 */
-	struct _wdev_ctrl_sub1 *a15;	/* $a15 */
-	uint8 *data;			/* $a1 + 16 */
-	uint16 counter;
-	struct _wdev_ctrl_sub4 *a1_0;	/* $a1 + 0 */
-	struct _wdev_ctrl_sub2 *a1_4;	/* $a1 + 4 */
-	uint32 a1_8;			/* $a1 + 8 */
-	struct Ampdu_Info *a1_12;	/* $a1 + 12 */
-
-	$a2 = wDevCtrl.f_8;
-	sniff_buf = wDevCtrl.f_8->f_4;	/* looks like this is a sniffer_buf struct */
-
-	data = sniff_buf->buf;
-
-	if (sniff_buf->rx_ctrl.Aggregation) {
-		/* AMPDU packets (A stands for Aggregation?) */
-		/* Seems that in an AMPDU packet, there is one RxControl header, followed by
-		   a bunch of (36-byte data buf || 2-byte cnt || 10-byte struct Ampdu_Info), ampdu_info.cnt times. */
-		/* They fill the new sniffer_buf with the first frame, and all other frames are skipped,
-		   only placing the Ampdu_Info structs concatenated in the sniffer_buf.ampdu_info array. */
-		a15 = wDevCtrl.f_8;
-		counter = 1;
-
-		while (((*(volatile uint8 *)(&(a15->f_b24)) & 0x7f) >> 6) == 0) {
-			a15 = a15->f_8;
-			++counter;
-		}
-
-		a1_4 = wDevCtrl.f_48;
-
-		/* sizeof (struct Ampdu_Info) == 10
-		   sizeof (struct sniffer_buf) (minus the Ampdu_Info) == 50.
-		   Thus in total, they allocate memory for a sniffer_buf struct
-		   with ampdu_cnt Ampdu_Info structs at the tail. */
-		new_buf = (struct sniffer_buf *)pvPortMalloc((sniff_buf->rx_ctrl.ampdu_cnt) * 10 + 50);
-
-		if (new_buf == NULL) {
-			_0x40103b24(a15, 1);		/* <trc_NeedRTS+0x1d4> */
-			_0x40103b54(wDevCtrl.f_48, 1);	/* <trc_NeedRTS+0x204> */
-			return;
-		}
-
-		/* 0x4010491a */
-		/* This happens in Aggregation == 1. Packet has length ampdu_cnt * 10 + 50 */
-		ets_memcpy(new_buf, sniff_buf, 60);	/* Copy the sniffer_buf and first ampdu_info packet */
-
-		a1_12 = new_buf->ampdu_info; /* Points to the struct Ampdu_Info array */
-		new_buf->cnt = 0;
-
-		/* a1_0 iterates over an array of struct _wdev_ctrl_sub4.
-		   The array has total size a1_4->f_12 bytes, and each struct has size 4 */
-		for (a1_0 = a1_4->f_4; a1_0 - a1_4->f_4 < a1_4->f_b12; a1_0++) {
-			if (new_buf->cnt >= sniff_buf->rx_ctl.ampdu_cnt)
-				break;
-
-			$a2 = a1_0->f_b0;
-
-			/* No idea what this does yet... */
-			if ($a2 != 0 && (($a2 <= 224) || ($a2 > 252)))
-				continue;
-
-			/* f_8->f_b0 is the total size of the sniffer buf (12 bits)?
-			 * So they check if the sniffer buf can reach to byte 24 of data.
-			 * In an IEEE-802.11 frame, this points to the Addr3 field.
-			 * I suppose that if the buffer is too short, they just stop. */
-			if ((uint8 *)(wDevCtrl.f_8->f_4) + wDevCtrl.f_8->f_b0 <= data + 24)
-				break;
-
-			new_buf->cnt += 1; /* Increment new_buf->cnt */
-
-			a1_12->length = a1_0->f_b8;
-			a1_12->seq = *((uint16 *)(data + 22));		/* Sequence Control field */
-
-			ets_memcpy(a1_12->address3, data + 16, 6);	/* Copy the Addr3 MAC Address to a1_12->address3 */
-
-			$a2 = 34; /* IEEE frame up to Addr3 (included) (22 bytes) + sniffer_buf.cnt (2 bytes) + Ampdu_Info (10 bytes) */
-			a1_12++;  /* a1_12 now points to next new ampdu_info struct. (size is 10) */
-
-			/* Looks at byte 1 of Frame Control field, bits To DS and From DS */
-			if ((*(uint8 *)(data + 1)) & 0x3 != 3)
-				$a2 = 28;	/*  Only include Addr4 (6 bytes) if To DS and From DS are both set */
-
-			$a2 += 2;		/* Plus 2 bytes for Sequence Control field */
-			$a2 &= 0xffff;		/* Possibly the length is stored in a uint16. */
-
-			if ((*(uint8 *)(data + 1)) & (1 << 7)) { /* Order bit */
-				$a2 += 4;	/* Add the HT Control field (4 bytes) */
-				$a2 &= 0xffff;
-			}
-
-			/* What about the QoS field (2 bytes)? Maybe I missed the code that checks this... */
-
-			roundup2($a2, 4);	/* So $a2 is an offset in data, and they round up to multiples of 4? */
-			data += $a2 & 0xffff;	/* So now data points to the next data buffer */
-		}
-
-		_0x40103b24(a15, counter);	/* <trc_NeedRTS+0x1d4> */
-		_0x40103b54(wDevCtrl.f_48, 1);
-	} else {
-		/* Not an AMPDU packet.*/
-		/* Look at the Frame Control type field (proto is always 0) */
-		a1_8 = (((sniff_buf->buf[0]) & 0x0f) == 0 ? 1 : 0);	/* 1 if type == 0 (Management frame) */
-
-		/* Management frames will be given 128 bytes, otherwise 60 bytes */
-		if (a1_8 != 0)
-			new_buf = (struct sniffer_buf2 *)pvPortMalloc(128);
-		else
-			new_buf = (struct sniffer_buf *)pvPortMalloc(60);
-
-		if (new_buf == NULL) {
-			_0x40103b24(wDevCtrl.f_8, 1); /* <trc_NeedRTS+0x1d4> */
-			return;
-		}
-
-		if (a1_8 == 0) {
-			/* Not a Management frame. --> Data or Control frame */
-			/* In this case, buffer will be size 60. */
-			ets_memcpy(new_buf, sniff_buf, 60);
-			new_buf->ampdu_info.cnt = 1;
-
-			if (sniff_buf->rx_ctrl.sig_mode != 0)
-				$a0 = sniff_buf->rx_ctrl.HT_length;
-			else
-				$a0 = sniff_buf->rx_ctrl.legacy_length;
-
-			new_buf->ampdu_info.length = $a0;
-			new_buf->ampdu_info.seq = *(uint16 *)(sniff_buf->buf + 22);	/* Sequence Control field */
-			ets_memcpy(new_buf->ampdu_info.address3, sniff_buf->buf + 16, 6); /* Copy the Addr3 field in address3 */
-		} else {
-			/* Management frame */
-			/* In this case, it's a struct sniffer_buf2 with 112 bytes of data buf. */
-			/* The format is: 12 bytes rx_ctrl, 112 bytes buf, 2 bytes cnt, 2 bytes len */
-			ets_memcpy(new_buf, sniff_buf, 128);
-			(struct sniffer_buf2 *)new_buf->cnt = 1;
-
-			/* sig_mode = 0 means it's an 11n packet: use HT_length field */
-			if (sniff_buf->rx_ctrl.sig_mode != 0)
-				$a0 = sniff_buf->rx_ctrl.HT_length;
-			else
-				$a0 = sniff_buf->rx_ctrl.legacy_length; /* length if not 11n packet */
-
-			(struct sniffer_buf2 *)new_buf->len = $a0;
-		}
-
-		_0x40103b24(wDevCtrl.f_8, 1); /* <trc_NeedRTS+0x1d4> */
-	}
-	
-	if (pp_post2(32, 9, new_buf) != 1)
-		return;	/* Again check for memory leaks... */
-
-	vPortFree(new_buf);
-	return;
-}
-
 /* <trc_NeedRTS+0x154> */
 static void _0x40103aa4(void *arg1, uint32 arg2, struct _wdev_ctrl_sub1 *arg3, uint16 arg4, uint32 arg5, uint16 arg6)
 {
@@ -425,6 +123,22 @@ static void _0x40103aa4(void *arg1, uint32 arg2, struct _wdev_ctrl_sub1 *arg3, u
 
 	$a2 = esf_buf;
 	lmacRxDone(esf_buf);
+}
+
+/* <trc_NeedRTS+0x1d4> */
+static void _0x40103b24(struct _wdev_ctrl_sub1 *arg1, uint16 arg2)
+{
+	_0x40103a14(arg2, arg1);	/* <trc_NeedRTS+0xc4> */
+	wDev_AppendRxBlocks(wDevCtrl.f_8, arg1, arg2);
+}
+
+/* <trc_NeedRTS+0x204> */
+static void _0x40103b54(struct _wdev_ctrl_sub2 *arg1, uint8 arg2)
+{
+	wDevCtrl.f_48 = arg1->f_8;
+	arg1->f_8 = NULL;
+	wDevCtrl.f_4 -= arg2;
+	wDev_AppendRxAmpduLensBlocks(wDevCtrl.f_48, arg1, arg2);
 }
 
 /* <trc_NeedRTS+0x240> */
@@ -603,10 +317,10 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 	}
 
 	/* By this point, my theory is that $a13 is 0 if the packet should be forwarded to
-	   the higher layers of the networking stack, otherwise not. */
+	   the higher layers of the networking stack, otherwise not. This makes sense,
+	   since the data frames are always passed. */
 	if ($a13 == 0) {
-		/* volatile? */
-		if (arg1->f_b12 == 0) {
+		if (*(volatile *)(&(arg1->f_b12)) == 0) {
 			ets_printf("%s %u\n", "wdev.c", 557);
 			while (1);
 		}
@@ -618,6 +332,15 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 	_0x40103b24(arg1, arg2);
 }
 
+/* <wDev_MacTim1Arm+0x68> */
+static void _0x40103e64(uint32 arg1)
+{
+	/* arg1 can be 0 or 1 */
+	if (((void **)&tcb + 159)[arg1] != NULL)
+		((void (*)())(((void **)&tcb + 159)[arg1]))();
+}
+
+/* 0x40103e8c */
 void wDev_ProcessFiq()
 {
 	uint32 a1_0;	/* $a1 + 0 */
@@ -819,16 +542,508 @@ void wDev_ProcessFiq()
 	}
 }
 
+/* 0x401041ac */
+void wDev_EnableTransmit()
+{
+	// stub
+}
+
+/* 0x401041e8 */
+void wDev_DisableTransmit()
+{
+	// stub
+}
+
+/* 0x40104378 */
+void wDev_AppendRxBlocks(struct _wdev_ctrl_sub1 *arg1, struct _wdev_ctrl_sub1 *arg2, uint16 arg3)
+{
+	struct _wdev_ctrl_sub1 *wcs1_p;	/* $a2 */
+	uint16 counter;			/* $a0 */
+
+	wcs1_p = arg1;
+
+	if (arg1 == NULL) {
+		counter = 0;
+	} else {
+		counter = 0;
+
+		do {
+			*(volatile uint8 *)(&(wcs1_p->f_b24)) |= 0x80;
+			*(volatile uint8 *)(&(wcs1_p->f_b24)) &= 0xbf;
+			*(volatile uint8 *)(&(wcs1_p->f_b24)) &= 0xdf;
+
+			/* XXX Really not sure about this line.
+			   Check from 0x401043d5 to 0x40104404. */
+			*(volatile *)(&(wcs1_p->f_b12)) = *(volatile *)(&(wcs1_p->f_b0));
+
+			wcs1_p = wcs1_p->f_8;
+			++counter;
+		} while (wcs1_p != NULL);
+	}
+
+	if (counter != arg3) {
+		ets_printf("%s %u\n", "wdev.c", 1440);
+		while (1);
+	}
+
+	ets_intr_lock();
+
+	if (wDevCtrl.f_0 == 0) {
+		wDevCtrl.f_8 = arg1;
+		((volatile struct _wdev_ctrl_sub1 **)0x3ff1fe00)[130] = arg1;
+
+		wDevCtrl.f_0 += arg3;
+		wDevCtrl.f_12 = arg2;
+
+		if (wDevCtrl.f_0 == 1)
+			wDevCtrl.f_12->f_8 = &(wDevCtrl.f_24); /* address of array or actual struct? */
+	} else if (wDevCtrl.f_0 == 1) {
+		if (wDevCtrl.f_16 != NULL) {
+			wDevCtrl.f_20->f_8 = arg1;
+			arg3 += wDevCtrl.f_2;
+		} else {
+			wDevCtrl.f_16 = arg1;
+		}
+
+		wDevCtrl.f_20 = arg2;
+		wDevCtrl.f_2 = arg3;
+	} else {
+		wDevCtrl.f_12->f_8 = arg1;
+		wDevCtrl.f_12 = arg2;
+		wDevCtrl.f_0 += arg3;
+	}
+
+	if (wDevCtrl.f_0 + wDevCtrl.f_2 >= 2) {
+		$a2 = ((volatile uint32 *)0x3ff20a00)[170];
+		$a2 &= 0x0fffffff;
+		$a2 |= 0x10000000;
+		((volatile uint32 *)0x3ff20a00)[170] = $a2;
+
+		$a12 = ((volatile uint32 *)0x3ff20a00)[171];
+		$a12 &= 0x0fffffff;
+		$a12 |= 0x50000000;
+		((volatile uint32 *)0x3ff20a00)[171] = $a12;
+	}
+
+	ets_intr_unlock();
+}
+
+/* 0x401044d8 */
+void wDev_AppendRxAmpduLensBlocks(struct _wdev_ctrl_sub2 *arg1, struct _wdev_ctrl_sub2 *arg2, uint8 arg3)
+{
+	struct _wdev_ctrl_sub2 *a1_0;	/* $a1 + 0 */
+	struct _wdev_ctrl_sub2 *wcs2_p;	/* $a2 */
+	uint16 counter;			/* $a0 */
+
+	a1_0 = arg2;
+	wcs2_p = arg1;
+
+	if (arg1 == NULL) {
+		counter = 0;
+	} else {
+		counter = 0;
+
+		do {
+			*(volatile uint8 *)(&(wcs2_p->f_b24)) |= 0x80;
+			*(volatile uint8 *)(&(wcs2_p->f_b24)) &= 0xbf;
+			*(volatile uint8 *)(&(wcs2_p->f_b24)) &= 0xdf;
+
+			/* XXX Really not sure about this line.
+			   Check from 0x40104533 to 0x40104562. */
+			*(volatile *)(&(wcs2_p->f_b12)) = *(volatile *)(&(wcs2_p->f_b0));
+
+			wcs2_p = wcs2_p->f_8;
+			++counter;
+		} while (wcs2_p != NULL);
+	}
+
+	if (counter != (uint16)arg3) {
+		ets_printf("%s %u\n", "wdev.c", 1514);
+		while (1);
+	}
+
+	ets_intr_lock();
+
+	if (wDevCtrl.f_48 == NULL) {
+		wDevCtrl.f_48 = arg1;
+		((volatile struct _wdev_ctrl_sub2 **)0x3ff1fe00)[131] = arg1;
+	} else {
+		wDevCtrl.f_52->f_8 = arg1;
+	}
+
+	wDevCtrl.f_52 = arg2;
+	wDevCtrl.f_4 += arg3;
+	ets_intr_unlock();
+}
+
+/* 0x401045f8 */
 void wDevDisableRx()
 {
 	((volatile uint32 *)0x3ff1fe00)[129] &= 0x7fffffff;
 }
 
-void wDevEnableRx()
+/* <wDevDisableRx+0x34> */
+static void _0x4010462c()
 {
-	((volatile uint32 *)0x3ff1fe00)[129] |= 0x80000000;
+	struct RxControl *rx_ctl_p;
+	struct RxControl *rx_ctl_new_p;
+
+	if (wDevCtrl.f_0 < 2)
+		return;
+
+	$a2 = ((volatile uint32 *)0x3ff1fe00)[142] & 0xff;
+
+	if ($a2 > 65 && !($a2 & (1 << 7)))
+		return;
+
+	rx_ctl_p = (struct RxControl *)(wDevCtrl.f_8->f_4);
+
+	if (rx_ctl_p->sig_mode == 0)
+		return;
+
+	if ((rx_ctl_p->CWB == 0) && (rx_ctl_p->MCS < 8) && (rx_ctl_p->FEC_CODING == 0))
+		return;
+
+	rx_ctl_new_p = pvPortMalloc(sizeof *rx_ctl_new_p); /* 12 bytes */
+
+	if (rx_ctl_new_p == NULL)
+		return;
+
+	ets_memcpy(rx_ctl_new_p, rx_ctl_p, sizeof *rx_ctl_p);
+
+	if (($a2 = chm_get_current_channel()) == NULL) {
+		ets_printf("%s %u\n", "wdev.c", 1862);
+		while (1);
+	}
+
+	/* XXX isn't channel 4-bits? How can you AND it with 0xf0? */
+	rx_ctl_new_p->channel = (rx_ctl_new_p->channel & 0xf0) | (((uint8 *)$a2)[6] & 0x0f);
+
+	if (rx_ctl_new_p->sig_mode == 0)
+		goto _0x401046a1;
+
+	if ((rx_ctl_new_p->CWB == 0) && (rx_ctl_new_p->MCS < 8) && (rx_ctl_new_p->FEC_CODING == 0))
+		goto _0x401046a1;
+
+	if (rx_ctl_new_p->MCS >= 32)
+		goto _0x401046a1;
+
+	if (pp_post2(32, 9, rx_ctl_new_p) != 1)
+		return;	/* memory leak? Did not free rx_ctl_new_p. Maybe freed in pp_post2. */
+
+	vPortFree(rx_ctl_new_p);
+	return;
+
+_0x401046a1:
+	vPortFree(rx_ctl_new_p);
+	return;
 }
 
+/* <wDevDisableRx+0x108> */
+static void _0x40104700()
+{
+	struct RxControl *rx_ctl_p;
+	struct RxControl *rx_ctl_new_p;
+
+	$a0 = ((volatile uint32 *)0x3ff20e00)[191];
+	$a3 = 29;	/* from machine instructions. Not sure... */
+
+	/* XXX $a3 is not even initialized here, wtf...
+		The calling function (wDev_ProcessFiq) sets $a3 to 4 at this point. */
+	while ($a3 >= ((volatile uint32 *)0x3ff20a00)[128] - $a0) {
+		if (((volatile uint32 *)0x3ff20a00)[135] & (1 << 2))
+			return;
+	}
+
+	if (((((volatile uint32 *)0x3ff1fe00)[245] >> 8) & 0xff) < 8)
+		return;
+
+	((volatile uint32 *)0x3ff20a00)[156] &= 0xfffffffd;	/* -3 in 32-bit unsigned hex */
+	
+	while ((((volatile uint32 *)0x3ff20a00)[135] & (1 << 2)) != 0);
+
+	if (wDevCtrl.f_0 < 2)
+		goto _0x40104794;
+
+	((volatile uint32 *)0x3ff20a00)[137] = 4;
+
+	$a2 = ((volatile uint32 *)0x3ff1fe00)[142] & 0xff;
+
+	if (($a2 > 65) && !($a2 & (1 << 7)))
+		goto _0x40104794;
+
+	rx_ctl_p = (struct RxControl *)(wDevCtrl.f_8->f_4);
+	rx_ctl_new_p = pvPortMalloc(sizeof *rx_ctl_new_p);
+
+	if (rx_ctl_new_p == NULL)
+		goto _0x40104794;
+
+	ets_memcpy(rx_ctl_new_p, rx_ctl_p, sizeof *rx_ctl_p);
+	
+	if (($a2 = chm_get_current_channel()) == NULL) {
+		ets_printf("%s %u\n", "wdev.c", 1922);
+		while (1);
+	}
+
+	/* XXX isn't channel 4-bits? How can you AND it with 0xf0? */
+	rx_ctl_new_p->channel = (rx_ctl_new_p->channel & 0xf0) | (((uint8 *)$a2)[6] & 0x0f);
+
+	if (rx_ctl_new_p->sig_mode == 0)
+		goto _0x40104829;
+
+	if ((rx_ctl_new_p->CWB == 0) && (rx_ctl_new_p->MCS < 8))
+		goto _0x40104829;
+
+	if (rx_ctl_new_p->MCS >= 32)
+		goto _0x40104829;
+
+	if (pp_post2(32, 9, rx_ctl_new_p) != 1)
+		goto _0x40104794;	/* possible memory leak if rx_ctl_new_p not freed */
+
+	vPortFree(rx_ctl_new_p);
+	goto _0x40104794;
+
+_0x40104829:
+	vPortFree(rx_ctl_new_p);
+
+_0x40104794:
+	((volatile uint32 *)0x3ff20a00)[156] |= (1 << 1);
+}
+
+/* <wDevDisableRx+0x240> */
+static void _0x40104838()
+{
+	struct sniffer_buf *sniff_buf;	/* $a12 */
+	struct sniffer_buf *new_buf;	/* $a13 */
+	struct _wdev_ctrl_sub1 *a15;	/* $a15 */
+	uint8 *data;			/* $a1 + 16 */
+	uint16 counter;
+	struct _wdev_ctrl_sub3 *a1_0;	/* $a1 + 0 */
+	struct _wdev_ctrl_sub2 *a1_4;	/* $a1 + 4 */
+	uint32 a1_8;			/* $a1 + 8 */
+	struct Ampdu_Info *a1_12;	/* $a1 + 12 */
+
+	$a2 = wDevCtrl.f_8;
+	sniff_buf = wDevCtrl.f_8->f_4;	/* looks like this is a sniffer_buf struct */
+
+	data = sniff_buf->buf;
+
+	if (sniff_buf->rx_ctrl.Aggregation) {
+		/* AMPDU packets (A stands for Aggregation?) */
+		/* Seems that in an AMPDU packet, there is one RxControl header, followed by
+		   a bunch of (36-byte data buf || 2-byte cnt || 10-byte struct Ampdu_Info), ampdu_info.cnt times. */
+		/* They fill the new sniffer_buf with the first frame, and all other frames are skipped,
+		   only placing the Ampdu_Info structs concatenated in the sniffer_buf.ampdu_info array. */
+		a15 = wDevCtrl.f_8;
+		counter = 1;
+
+		while (((*(volatile uint8 *)(&(a15->f_b24)) & 0x7f) >> 6) == 0) {
+			a15 = a15->f_8;
+			++counter;
+		}
+
+		a1_4 = wDevCtrl.f_48;
+
+		/* sizeof (struct Ampdu_Info) == 10
+		   sizeof (struct sniffer_buf) (minus the Ampdu_Info) == 50.
+		   Thus in total, they allocate memory for a sniffer_buf struct
+		   with ampdu_cnt Ampdu_Info structs at the tail. */
+		new_buf = (struct sniffer_buf *)pvPortMalloc((sniff_buf->rx_ctrl.ampdu_cnt) * 10 + 50);
+
+		if (new_buf == NULL) {
+			_0x40103b24(a15, 1);		/* <trc_NeedRTS+0x1d4> */
+			_0x40103b54(wDevCtrl.f_48, 1);	/* <trc_NeedRTS+0x204> */
+			return;
+		}
+
+		/* 0x4010491a */
+		/* This happens in Aggregation == 1. Packet has length ampdu_cnt * 10 + 50 */
+		ets_memcpy(new_buf, sniff_buf, 60);	/* Copy the sniffer_buf and first ampdu_info packet */
+
+		a1_12 = new_buf->ampdu_info; /* Points to the struct Ampdu_Info array */
+		new_buf->cnt = 0;
+
+		/* a1_0 iterates over an array of struct _wdev_ctrl_sub3.
+		   The array has total size a1_4->f_12 bytes, and each struct has size 4 */
+		for (a1_0 = a1_4->f_4; a1_0 - a1_4->f_4 < a1_4->f_b12; a1_0++) {
+			if (new_buf->cnt >= sniff_buf->rx_ctl.ampdu_cnt)
+				break;
+
+			$a2 = a1_0->f_b0;
+
+			/* No idea what this does yet... */
+			if ($a2 != 0 && (($a2 <= 224) || ($a2 > 252)))
+				continue;
+
+			/* f_8->f_b0 is the total size of the sniffer buf (12 bits)?
+			 * So they check if the sniffer buf can reach to byte 24 of data.
+			 * In an IEEE-802.11 frame, this points to the Addr3 field.
+			 * I suppose that if the buffer is too short, they just stop. */
+			if ((uint8 *)(wDevCtrl.f_8->f_4) + wDevCtrl.f_8->f_b0 <= data + 24)
+				break;
+
+			new_buf->cnt += 1; /* Increment new_buf->cnt */
+
+			a1_12->length = a1_0->f_b8;
+			a1_12->seq = *((uint16 *)(data + 22));		/* Sequence Control field */
+
+			ets_memcpy(a1_12->address3, data + 16, 6);	/* Copy the Addr3 MAC Address to a1_12->address3 */
+
+			$a2 = 34; /* IEEE frame up to Addr3 (included) (22 bytes) + sniffer_buf.cnt (2 bytes) + Ampdu_Info (10 bytes) */
+			a1_12++;  /* a1_12 now points to next new ampdu_info struct. (size is 10) */
+
+			/* Looks at byte 1 of Frame Control field, bits To DS and From DS */
+			if ((*(uint8 *)(data + 1)) & 0x3 != 3)
+				$a2 = 28;	/*  Only include Addr4 (6 bytes) if To DS and From DS are both set */
+
+			$a2 += 2;		/* Plus 2 bytes for Sequence Control field */
+			$a2 &= 0xffff;		/* Possibly the length is stored in a uint16. */
+
+			if ((*(uint8 *)(data + 1)) & (1 << 7)) { /* Order bit */
+				$a2 += 4;	/* Add the HT Control field (4 bytes) */
+				$a2 &= 0xffff;
+			}
+
+			/* What about the QoS field (2 bytes)? Maybe I missed the code that checks this... */
+
+			roundup2($a2, 4);	/* So $a2 is an offset in data, and they round up to multiples of 4? */
+			data += $a2 & 0xffff;	/* So now data points to the next data buffer */
+		}
+
+		_0x40103b24(a15, counter);	/* <trc_NeedRTS+0x1d4> */
+		_0x40103b54(wDevCtrl.f_48, 1);
+	} else {
+		/* Not an AMPDU packet.*/
+		/* Look at the Frame Control type field (proto is always 0) */
+		a1_8 = (((sniff_buf->buf[0]) & 0x0f) == 0 ? 1 : 0);	/* 1 if type == 0 (Management frame) */
+
+		/* Management frames will be given 128 bytes, otherwise 60 bytes */
+		if (a1_8 != 0)
+			new_buf = (struct sniffer_buf2 *)pvPortMalloc(128);
+		else
+			new_buf = (struct sniffer_buf *)pvPortMalloc(60);
+
+		if (new_buf == NULL) {
+			_0x40103b24(wDevCtrl.f_8, 1); /* <trc_NeedRTS+0x1d4> */
+			return;
+		}
+
+		if (a1_8 == 0) {
+			/* Not a Management frame. --> Data or Control frame */
+			/* In this case, buffer will be size 60. */
+			ets_memcpy(new_buf, sniff_buf, 60);
+			new_buf->ampdu_info.cnt = 1;
+
+			if (sniff_buf->rx_ctrl.sig_mode != 0)
+				$a0 = sniff_buf->rx_ctrl.HT_length;
+			else
+				$a0 = sniff_buf->rx_ctrl.legacy_length;
+
+			new_buf->ampdu_info.length = $a0;
+			new_buf->ampdu_info.seq = *(uint16 *)(sniff_buf->buf + 22);	/* Sequence Control field */
+			ets_memcpy(new_buf->ampdu_info.address3, sniff_buf->buf + 16, 6); /* Copy the Addr3 field in address3 */
+		} else {
+			/* Management frame */
+			/* In this case, it's a struct sniffer_buf2 with 112 bytes of data buf. */
+			/* The format is: 12 bytes rx_ctrl, 112 bytes buf, 2 bytes cnt, 2 bytes len */
+			ets_memcpy(new_buf, sniff_buf, 128);
+			(struct sniffer_buf2 *)new_buf->cnt = 1;
+
+			/* sig_mode = 0 means it's an 11n packet: use HT_length field */
+			if (sniff_buf->rx_ctrl.sig_mode != 0)
+				$a0 = sniff_buf->rx_ctrl.HT_length;
+			else
+				$a0 = sniff_buf->rx_ctrl.legacy_length; /* length if not 11n packet */
+
+			(struct sniffer_buf2 *)new_buf->len = $a0;
+		}
+
+		_0x40103b24(wDevCtrl.f_8, 1); /* <trc_NeedRTS+0x1d4> */
+	}
+	
+	if (pp_post2(32, 9, new_buf) != 1)
+		return;	/* Again check for memory leaks... */
+
+	vPortFree(new_buf);
+	return;
+}
+
+/* 0x40247298 */
+void wDev_Option_Init()
+{
+	((volatile uint32 *)0x3ff20a00)[162] |= 0x00800a00;
+	((volatile uint32 *)0x3ff20a00)[162] &= 0x7fdfbff7;
+	((volatile uint32 *)0x3ff20a00)[164] |= 0x00000008;
+	((volatile uint32 *)0x3ff20a00)[165] |= 0x00000003;
+
+	((volatile uint32 *)0x3ff20e00)[2] &= 0xffffff0f;
+
+	$a8 = ((volatile uint32 *)0x3ff20a00)[154]; 
+	$a8 = ($a8 >> 16) & 0xff;
+	$a8 += 18;
+	$a8 &= 0xff;
+	$a8 <<= 16;
+
+	$a7 = ((volatile uint32 *)0x3ff20a00)[154];
+	$a7 &= 0xff00ffff;
+	$a7 |= $a8;
+	((volatile uint32 *)0x3ff20a00)[154] = $a7;
+
+	$a4 = ((volatile uint32 *)0x3ff20a00)[155];
+	$a4 &= 0xffffff00;
+	$a4 |= 0x00000016;
+	((volatile uint32 *)0x3ff20a00)[155] = $a4;
+
+	$a10 = ((volatile uint32 *)0x3ff20a00)[155];
+	$a10 &= 0xffff00ff;
+	$a10 |= 0x00001600;
+	((volatile uint32 *)0x3ff20a00)[155] = $a10;
+
+	$a7 = ((volatile uint32 *)0x3ff20a00)[133];
+	$a7 &= 0xfffff000;
+	$a7 |= 0x000000f0;
+	((volatile uint32 *)0x3ff20a00)[133] = $a7;
+
+	((volatile uint32 *)0x3ff20a00)[133] |= 0x80000000;
+	((volatile uint32 *)0x3ff20a00)[133] |= 0x40000000;
+}
+
+/* <wDev_Get_Next_TBTT+0x5c> */
+static void _0x40247458()
+{
+	// stub
+}
+
+/* <wDev_Get_Next_TBTT+0x224> */
+static void _0x40247620()
+{
+	// stub
+}
+
+/* <wDev_Get_Next_TBTT+0x248> */
+static void _0x40247644()
+{
+	// stub
+}
+
+/* 0x402476a4 */
+void wDev_Initialize()
+{
+	((volatile uint32 *)0x3ff20a00)[134] = 0;
+	((volatile uint32 *)0x3ff20a00)[137] = 0xffffffff;
+
+	wDev_Option_Init();
+	_0x40247a94();	/* <wDev_Crypto_Conf+0x4c> */
+	_0x40247458();	/* <wDev_Get_Next_TBTT+0x5c> */
+	_0x40247620();	/* <wDev_Get_Next_TBTT+0x224> */
+	_0x40247644();	/* <wDev_Get_Next_TBTT+0x248> */
+
+	((volatile uint32 *)0x3ff20a00)[134] = 0x0c9f0300;
+	((volatile uint32 *)0x3ff1fe00)[222] |= 2;
+	((volatile uint32 *)0x3ff1fe00)[129] &= 0x7fffffff;
+}
+
+/* 0x4024772c */
 void wDev_SetMacAddress(uint32 arg1, uint8 *arg2)
 {
 	$a5 = (arg2[3] << 24) | (arg2[2] << 16) | (arg2[1] << 8) | arg2[0];
@@ -850,11 +1065,24 @@ void wDev_SetMacAddress(uint32 arg1, uint8 *arg2)
 	}
 }
 
+/* <wDev_Crypto_Conf+0x4c> */
+static void _0x40247a94()
+{
+	// stub
+}
+
+/* 0x40107b20 */
+void wDevEnableRx()
+{
+	((volatile uint32 *)0x3ff1fe00)[129] |= 0x80000000;
+}
+
+/* 0x40247b4c */
 void wdev_go_sniffer()
 {
 	wDevCtrl.f_5 = 1;
 
-	((volatile void **)0x3ff1fe00)[131] = wDevCtrl.f_48;
+	((volatile struct _wdev_ctrl_sub2 **)0x3ff1fe00)[131] = wDevCtrl.f_48;
 	((volatile uint32 *)0x3ff20a00)[162] |= 0x00040000;
 
 	((volatile uint32 *)0x3ff20600)[128] |= 0x03000000;
@@ -875,6 +1103,7 @@ void wdev_go_sniffer()
 	((volatile uint32 *)0x3ff20a00)[165] &= 0xfffffffe;
 }
 
+/* 0x40247c28 */
 void wdev_set_sniffer_addr(uint8 *arg1)
 {
 	((volatile uint32 *)0x3ff1fe00)[155] |= 1;
@@ -883,6 +1112,7 @@ void wdev_set_sniffer_addr(uint8 *arg1)
 	wDev_SetMacAddress(0, arg1);
 }
 
+/* 0x40247c84 */
 void wdev_exit_sniffer()
 {
 	if (wDevCtrl.f_5 == 0)
@@ -904,7 +1134,7 @@ void wdev_exit_sniffer()
 	((volatile uint32 *)0x3ff20600)[129] |= 0x00010000;
 
 	((volatile uint32 *)0x3ff20a00)[162] &= 0xfffbffff;
-	((volatile void **)0x3ff1fe00)[131] = &(wDevCtrl.f_24);
+	((volatile struct _wdev_ctrl_sub1 **)0x3ff1fe00)[131] = &(wDevCtrl.f_24);
 
 	wDevCtrl.f_5 = 0;
 }
