@@ -1095,8 +1095,8 @@ static void _0x40247644()
 	((volatile uint32 *)0x3ff1fe00)[155] &= 0xffffffef;
 	((volatile uint32 *)0x3ff1fe00)[155] &= 0xfffffffe;
 
-	wDev_SetRxPolicy(0, 0, 0);
-	wDev_SetRxPolicy(0, 1, 0);
+	wDev_SetRxPolicy(0, 0, NULL);
+	wDev_SetRxPolicy(0, 1, NULL);
 }
 
 /* 0x402476a4 */
@@ -1139,9 +1139,46 @@ void wDev_SetMacAddress(uint32 arg1, uint8 *arg2)
 }
 
 /* 0x402477cc */
-void wDev_SetRxPolicy(uint32 arg1, uint32 arg2, uint32 arg3)
+void wDev_SetRxPolicy(uint32 arg1, uint32 arg2, uint8 *arg3)
+{
+	switch (arg1) {
+		case 0:
+			if (arg2 == 0)
+				((volatile uint32 *)0x3ff20a00)[143] &= 0xfffeffff;
+			else
+				((volatile uint32 *)0x3ff20a00)[145] &= 0xfffeffff;
+
+			break;
+
+		case 1:
+			wDev_SetBssid(arg2, &ieee80211_addr_bcast);
+			break;
+
+		case 2:
+			if (arg3 != NULL)
+				wDev_SetBssid(arg2, arg3);
+
+			break;
+
+		default:
+			break;
+	}
+}
+
+/* 0x40247820 */
+void wDev_SetBssid(uint32 arg1, uint8 *arg2)
 {
 	// stub
+	$a10 = 0xffffffff;
+	$a8 = 0x00010000;
+	$a7 = 0x0000ffff;
+	$a5 = 0xfffeffff;
+	$a6 = 0x3ff20a00;
+
+	if ($a2 == NULL)
+		goto _0x40247893;
+
+	/* 0x4024731 */
 }
 
 /* 0x40247930 */
