@@ -7,7 +7,7 @@
 
 #define AUTO_CONNECT_TIMEOUT	7000
 
-#define MQTT_HOST	"test.mosquitto.org"
+#define MQTT_HOST	"192.168.2.216"
 #define MQTT_PORT	1883
 #define MQTT_SECURITY	0
 #define MQTT_DEVICE_ID	"client_id"
