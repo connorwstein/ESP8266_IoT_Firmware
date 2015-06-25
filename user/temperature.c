@@ -14,12 +14,16 @@
 #define DATA_BIT_HIGH_THRESHOLD 18 //number of ones in a row that indicates a bit high, 
 //note that this depends on the code in the while loop of the read function, if that loop takes longer to execute i.e. code is added
 //to it, this value may change
+
+
 typedef struct dht{
 	unsigned short humidity;
 	unsigned short temperature;
+	bool negative_temp;
 }dht;
 
 static dht DHT;
+DHT.negative_temp=false;
 
 void ICACHE_FLASH_ATTR set_dht(unsigned char* data){
 	int i;
@@ -30,6 +34,11 @@ void ICACHE_FLASH_ATTR set_dht(unsigned char* data){
 	unsigned short data_compressed[2];
 	memset(data_compressed,0,sizeof data_compressed);
 	data+=2;
+	if(data[0]==1){
+		DHT.negative_temp=true;
+		ets_uart_printf("Negative temperature detected\n");
+		data[0]=0; //flip the sign bit
+	}
 	//10 = 8 bits of the checksum and 2 bits of the initial protocol are not data bits
 	for(i=0;i<READ_BUFFER_SIZE-10;i++){
 		data_compressed[i/16]<<=1;
@@ -151,7 +160,14 @@ void ICACHE_FLASH_ATTR Temperature_get_temperature(struct espconn *conn)
 	ets_uart_printf("GPIO2 after PIN_PULLUP_EN: %d\n",GPIO_INPUT_GET(BIT2)); //READS pin 1=high 3.3V
 	char buff[10];
 	if(read()!=-1){
-		os_sprintf(buff,"%d %d",DHT.humidity,DHT.temperature);
+		if(DHT.negative_temp){
+			//add negative sign
+			os_sprintf(buff,"%d -%d",DHT.humidity,DHT.temperature);
+		}
+		else{
+			os_sprintf(buff,"%d %d",DHT.humidity,DHT.temperature);
+		}
+		
 		ets_uart_printf("Buff %s\n",buff);
 		ets_uart_printf("Sending Humidity: %d Temperature: %d\n",DHT.humidity,DHT.temperature);
 		espconn_sent(conn, (uint8 *)buff, 10);
