@@ -7,6 +7,7 @@
 #include "device_config.h"
 #include "network_cmds.h"
 #include "helper.h"
+#include "mqtt.h"
 #include "wifi.h"
 
 #include "debug.h"
@@ -98,6 +99,8 @@ void ICACHE_FLASH_ATTR user_init()
 	} else {
 		ets_uart_printf("This device has not yet been configured.\n");
 	}
+
+	mqtt_init();
 
 	wifi_set_opmode(STATION_MODE);
 	wifi_set_event_handler_cb(sta_wifi_handler);

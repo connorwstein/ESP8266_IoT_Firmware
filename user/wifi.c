@@ -4,6 +4,7 @@
 #include "user_interface.h"
 
 #include "helper.h"
+#include "mqtt.h"
 #include "sta_server.h"
 
 #include "debug.h"
@@ -142,8 +143,10 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			to make sure we don't get DISCONNECTED events just after restart, before the flags have been reset.
 			We register an empty wifi handler callback just before restarting to avoid this.
 			*/
-				
+
 			if (HAS_BEEN_CONNECTED_AS_STATION || HAS_RECEIVED_CONNECT_INSTRUCTION) {
+				mqtt_stop();
+
 				//Disconnected from network - convert to AP for reconfiguration
 				if (!wifi_station_disconnect())
 					 ets_uart_printf("Failed to disconnect.\n");
@@ -162,6 +165,7 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			HAS_BEEN_CONNECTED_AS_STATION = true;
 			sta_server_init_tcp();
 			sta_server_init_udp();
+			mqtt_start();
 			break;
 
 		case EVENT_STAMODE_AUTHMODE_CHANGE:
