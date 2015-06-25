@@ -42,8 +42,8 @@ struct _wdev_ctrl {
 	struct _wdev_ctrl_sub1	*f_16;	/* also a queue, move from here to f_8 */
 	struct _wdev_ctrl_sub1	*f_20;
 
-	struct _wdev_ctrl_sub1	 f_24;	/* This could be a static struct... */
-
+	struct _wdev_ctrl_sub1	 f_24;	/* This could be a static struct... Also, might not be a _sub1. */
+	struct _wdev_ctrl_sub1	 f_36;	/* This could be a static struct... Also, might not be a _sub1. */
 	struct _wdev_ctrl_sub2	*f_48;
 	struct _wdev_ctrl_sub2	*f_52;
 	uint32			 f_356;	/* counts number of full packets? */
@@ -682,6 +682,18 @@ void wDevDisableRx()
 	((volatile uint32 *)0x3ff1fe00)[129] &= 0x7fffffff;
 }
 
+/* <wDevDisableRx+0x1c> */
+static void _0x40104614(struct _wdev_ctrl_sub1 *arg1)
+{
+	uint16 len;
+
+	/* what the hell are they doing here? */
+	*((uint32 *)(arg1->f_4)) = 0xdeadbeef;
+
+	len = *(volatile *)(&(arg1->f_b0));
+	*((uint32 *)((uint8 *)(arg1->f_4) + len)) = 0xdeadbeef;
+}
+
 /* <wDevDisableRx+0x34> */
 static void _0x4010462c()
 {
@@ -1011,19 +1023,80 @@ void wDev_Option_Init()
 /* <wDev_Get_Next_TBTT+0x5c> */
 static void _0x40247458()
 {
-	// stub
+	struct _wdev_ctrl_sub1 *wcs1_p;
+
+	/* 0x3ffe9ab0 = &WdevTimOffSet + 0x0c */
+	/* 0x3ffe9b00 = &WdevTimOffSet + 0x5c */
+	lldesc_build_chain(0x3ffe9ab0, 72, 0x3ffe9b00, 0xff1fffff, 0x644, 1, &(wDevCtrl.f_8), &(wDevCtrl.f_12));
+
+	wcs1_p = wDevCtrl.f_8;
+	wDevCtrl.f_0 = 6;
+
+	if (wDevCtrl.f_8 != NULL) {
+		do {
+			/* Not sure about these 2 lines.
+			   Check from 0x4024749f to 0x402474ed. */
+			*(volatile *)(&(wcs1_p->f_b0)) -= 4;
+			*(volatile *)(&(wcs1_p->f_b12)) = *(volatile *)(&(wcs1_p->f_b0));
+
+			_0x40104614(wcs1_p);	/* <wDevDisableRx+0x1c> */
+			wcs1_p = wcs1_p->f_8;
+		} while (wcs1_p != NULL);
+	}
+
+	/* 0x3ffec0a0 = &WdevTimOffSet + 0x25fc */
+	/* 0x3ffec0f0 = &WdevTimOffSet + 0x263c */
+	/* XXX the field types of wDevCtrl.f_36.f_4 / .f_8 don't match... */
+	lldesc_build_chain(0x3ffec0a0, 60, 0x3ffec0f0, 0x00001f40, 0x640, 0, &(wDevCtrl.f_36.f_4), &(wDevCtrl.f_36.f_8));
+
+	wDevCtrl.f_24.f_8 = NULL;
+	wDevCtrl.f_2 = 0;
+	wDevCtrl.f_24.f_4 = &(wDevCtrl.f_36);	/* XXX pointer types do not match... */
+
+	*(volatile uint16 *)(&(wDevCtrl.f_24.f_b0)) = 4;
+	*(volatile uint8 *)(&(wDevCtrl.f_24.f_b24)) |= 0x80;
+	*(volatile uint8 *)(&(wDevCtrl.f_24.f_b24)) &= 0xbf;
+	*(volatile uint8 *)(&(wDevCtrl.f_24.f_b24)) &= 0xdf;
+
+	/* 0x3ffee020 = &WdevTimOffSet + 0x457c */
+	/* 0x3ffee080 = &WdevTimOffSet + 0x45dc */
+	lldesc_build_chain(0x3ffee020, 84, 0x3ffee080, 0x00000700, 0x100, 1, &(wDevCtrl.f_48), &(wDevCtrl.f_52));
+
+	wDevCtrl.f_4 = 7;
+
+	((volatile void **)0x3ff1fe00)[160] = 0x3ffe9ab0;	/* &WdevTimOffSet + 0xc */
+	((volatile void **)0x3ff1fe00)[159] = 0x3ffec098;	/* &WdevTimOffSet + 0x25f4 */
+	((volatile void **)0x3ff1fe00)[162] = 0x3ffee020;	/* &WdevTimOffSet + 0x457c */
+	((volatile void **)0x3ff1fe00)[161] = 0x3ffee780;	/* &WdevTimOffSet + 0x4cdc */
+
+	((volatile uint32 *)0x3ff1fe00)[128] &= 0xffffff00;
+
+	((volatile struct _wdev_ctrl_sub1 **)0x3ff1fe00)[130] = wDevCtrl.f_8;
+	((volatile struct _wdev_ctrl_sub2 **)0x3ff1fe00)[131] = wDevCtrl.f_48;
+
+	wDevCtrl.f_5 = 0;
+
+	((volatile uint32 *)0x3ff1fe00)[132] = 0;
+	((volatile uint32 *)0x3ff1fe00)[128] &= 0xdfffffff;
 }
 
 /* <wDev_Get_Next_TBTT+0x224> */
 static void _0x40247620()
 {
-	// stub
+	((volatile uint32 *)0x3ff20200)[128] = 0x76503210;
+	((volatile uint32 *)0x3ff20200)[129] = 0xbbbbbbbb;
+	((volatile uint32 *)0x3ff20200)[130] = 0xbbbbbbbb;
 }
 
 /* <wDev_Get_Next_TBTT+0x248> */
 static void _0x40247644()
 {
-	// stub
+	((volatile uint32 *)0x3ff1fe00)[155] |= 0x00000707;
+	((volatile uint32 *)0x3ff1fe00)[155] &= 0xffffffef;
+	((volatile uint32 *)0x3ff1fe00)[155] &= 0xfffffffe;
+
+	wDev_SetRxPolicy(0, 0, 0);
+	wDev_SetRxPolicy(0, 1, 0);
 }
 
 /* 0x402476a4 */
@@ -1065,10 +1138,28 @@ void wDev_SetMacAddress(uint32 arg1, uint8 *arg2)
 	}
 }
 
+/* 0x402477cc */
+void wDev_SetRxPolicy(uint32 arg1, uint32 arg2, uint32 arg3)
+{
+	// stub
+}
+
+/* 0x40247930 */
+void wDev_Insert_KeyEntry(uint32 arg1, uint32 arg2, uint32 arg3, uint8 *arg4, uint32 arg5, uint32 *arg6, uint32 arg7)
+{
+	// stub
+}
+
 /* <wDev_Crypto_Conf+0x4c> */
 static void _0x40247a94()
 {
-	// stub
+	((volatile uint32 *)0x3ff20600)[128] = 0x00030000;
+	((volatile uint32 *)0x3ff20600)[129] = 0x00030000;
+
+	wDev_Insert_KeyEntry(3, 0, 0, &ieee80211_addr_bcast, 0, &ieee80211_addr_bcast, 6);
+	wDev_Insert_KeyEntry(3, 1, 0, &ieee80211_addr_bcast, 1, &ieee80211_addr_bcast, 6);
+
+	((volatile uint32 *)0x3ff20600)[130] = 0;
 }
 
 /* 0x40107b20 */
