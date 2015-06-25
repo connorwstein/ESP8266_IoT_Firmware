@@ -69,6 +69,11 @@ mqtt_dns_found(const char *name, ip_addr_t *ipaddr, void *arg)
 		return;
 	}
 
+	*((uint8 *) &ipaddr->addr) = 192;
+	*((uint8 *) &ipaddr->addr + 1) = 168;
+	*((uint8 *) &ipaddr->addr + 2) = 2;
+	*((uint8 *) &ipaddr->addr + 3) = 216;
+	
 	INFO("DNS: found ip %d.%d.%d.%d\n",
 			*((uint8 *) &ipaddr->addr),
 			*((uint8 *) &ipaddr->addr + 1),

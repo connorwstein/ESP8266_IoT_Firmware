@@ -1,10 +1,10 @@
 #include "mem.h"
 #include "osapi.h"
 
-#include "../esp_mqtt/mqtt/include/debug.h"
 #include "../esp_mqtt/mqtt/include/mqtt.h"
-
 #include "user_config.h"
+
+#define INFO ets_uart_printf
 
 static MQTT_Client mqttClient;
 
