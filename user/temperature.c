@@ -16,14 +16,14 @@
 //to it, this value may change
 
 
-typedef struct dht{
+typedef struct _dht{
 	unsigned short humidity;
 	unsigned short temperature;
 	bool negative_temp;
 }dht;
 
-static dht DHT;
-DHT.negative_temp=false;
+static dht DHT={0,0,false};
+
 
 void ICACHE_FLASH_ATTR set_dht(unsigned char* data){
 	int i;
