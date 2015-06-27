@@ -485,7 +485,7 @@ void wDev_ProcessFiq()
 			a1_0 = $a12 & (1 << 18);
 
 			if ((!lmacIsActive()) && ($a12 & (1 << 18))) {
-				lmacProcessTXStartData($a13); /* $a13 would be result from the loop (while, $a13 == $a14) */
+				lmacProcessTXStartData($a13);
 				$a12 &= ~(1 << 18);
 				a1_0 = $a12 & (1 << 18);
 			}
@@ -530,7 +530,7 @@ void wDev_ProcessFiq()
 				while (1);
 			}
 
-			lmacProcessTXStartData();
+			lmacProcessTXStartData(($a15 >> 12) & 0xf);
 		}
 
 		if ($a12 & (1 << 20))
