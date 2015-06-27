@@ -53,6 +53,9 @@ struct _wdev_ctrl {
 
 struct _wdev_ctrl wDevCtrl;	/* XXX Don't know the size yet... */
 
+/* These functions are stored in the .text section, and thus
+   do not start with the ICACHE_FLASH_ATTR attribute. */
+
 /* <trc_NeedRTS+0xc4> */
 static void _0x40103a14(uint16 arg1, struct _wdev_ctrl_sub1 *arg2)
 {
@@ -300,7 +303,7 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 			$a2 = 0;
 			$a7 = 0;
 
-			if (((uint8 *)0x3ffeff5c)[100] == 1)
+			if (((uint8 *)0x3ffeff5c)[100] == 1)	/* &g_ic + 0x180 */
 				$a13 = 0;
 			else
 				$a13 = 1;
@@ -329,7 +332,7 @@ static void _0x40103b90(struct _wdev_ctrl_sub1 *arg1, uint32 arg2, uint32 arg3, 
 		return;
 	}
 
-	_0x40103b24(arg1, arg2);
+	_0x40103b24(arg1, arg2);	/* <trc_NeedRTS+0x1d4> */
 }
 
 /* <wDev_MacTim1Arm+0x68> */
@@ -980,8 +983,11 @@ static void _0x40104838()
 	return;
 }
 
+/* From here onwards, functions are stored in the .irom0.text section,
+   and thus they are prefixed with the ICACHE_FLASH_ATTR attribute */
+
 /* 0x40247298 */
-void wDev_Option_Init()
+void ICACHE_FLASH_ATTR wDev_Option_Init()
 {
 	((volatile uint32 *)0x3ff20a00)[162] |= 0x00800a00;
 	((volatile uint32 *)0x3ff20a00)[162] &= 0x7fdfbff7;
@@ -1020,8 +1026,26 @@ void wDev_Option_Init()
 	((volatile uint32 *)0x3ff20a00)[133] |= 0x40000000;
 }
 
+/* 0x4024738c */
+void ICACHE_FLASH_ATTR wDev_Enable_Beacon_Tsf()
+{
+	// stub
+}
+
+/* 0x402473a8 */
+void ICACHE_FLASH_ATTR wDev_Disable_Beacon_Tsf()
+{
+	// stub
+}
+
+/* 0x402473c4 */
+void ICACHE_FLASH_ATTR wDev_Set_Beacon_Int()
+{
+	// stub
+}
+
 /* <wDev_Get_Next_TBTT+0x5c> */
-static void _0x40247458()
+static void ICACHE_FLASH_ATTR _0x40247458()
 {
 	struct _wdev_ctrl_sub1 *wcs1_p;
 
@@ -1081,7 +1105,7 @@ static void _0x40247458()
 }
 
 /* <wDev_Get_Next_TBTT+0x224> */
-static void _0x40247620()
+static void ICACHE_FLASH_ATTR _0x40247620()
 {
 	((volatile uint32 *)0x3ff20200)[128] = 0x76503210;
 	((volatile uint32 *)0x3ff20200)[129] = 0xbbbbbbbb;
@@ -1089,7 +1113,7 @@ static void _0x40247620()
 }
 
 /* <wDev_Get_Next_TBTT+0x248> */
-static void _0x40247644()
+static void ICACHE_FLASH_ATTR _0x40247644()
 {
 	((volatile uint32 *)0x3ff1fe00)[155] |= 0x00000707;
 	((volatile uint32 *)0x3ff1fe00)[155] &= 0xffffffef;
@@ -1100,7 +1124,7 @@ static void _0x40247644()
 }
 
 /* 0x402476a4 */
-void wDev_Initialize()
+void ICACHE_FLASH_ATTR wDev_Initialize()
 {
 	((volatile uint32 *)0x3ff20a00)[134] = 0;
 	((volatile uint32 *)0x3ff20a00)[137] = 0xffffffff;
@@ -1117,7 +1141,7 @@ void wDev_Initialize()
 }
 
 /* 0x4024772c */
-void wDev_SetMacAddress(uint32 arg1, uint8 *arg2)
+void ICACHE_FLASH_ATTR wDev_SetMacAddress(uint32 arg1, uint8 *arg2)
 {
 	$a5 = (arg2[3] << 24) | (arg2[2] << 16) | (arg2[1] << 8) | arg2[0];
 
@@ -1139,7 +1163,7 @@ void wDev_SetMacAddress(uint32 arg1, uint8 *arg2)
 }
 
 /* 0x402477cc */
-void wDev_SetRxPolicy(uint32 arg1, uint32 arg2, uint8 *arg3)
+void ICACHE_FLASH_ATTR wDev_SetRxPolicy(uint32 arg1, uint32 arg2, uint8 *arg3)
 {
 	switch (arg1) {
 		case 0:
@@ -1166,29 +1190,70 @@ void wDev_SetRxPolicy(uint32 arg1, uint32 arg2, uint8 *arg3)
 }
 
 /* 0x40247820 */
-void wDev_SetBssid(uint32 arg1, uint8 *arg2)
+void ICACHE_FLASH_ATTR wDev_SetBssid(uint32 arg1, uint8 *arg2)
 {
-	// stub
-	$a10 = 0xffffffff;
-	$a8 = 0x00010000;
-	$a7 = 0x0000ffff;
-	$a5 = 0xfffeffff;
-	$a6 = 0x3ff20a00;
+	if (arg1 == 0) {
+		((volatile uint32 *)0x3ff20a00)[143] &= 0xfffeffff;
+		((volatile uint32 *)0x3ff20a00)[138] = ((arg2[3] << 24) | (arg2[2] << 16) | (arg2[1] << 8) | arg2[0]);
+		((volatile uint32 *)0x3ff20a00)[139] = ((arg2[5] << 8) | arg2[4]);
+		((volatile uint32 *)0x3ff20a00)[142] = 0xffffffff;
+		((volatile uint32 *)0x3ff20a00)[143] = 0x0000ffff;
+		((volatile uint32 *)0x3ff20a00)[143] |= 0x00010000;
+	} else {
+		((volatile uint32 *)0x3ff20a00)[145] &= 0xfffeffff;
+		((volatile uint32 *)0x3ff20a00)[140] = ((arg2[3] << 24) | (arg2[2] << 16) | (arg2[1] << 8) | arg2[0]);
+		((volatile uint32 *)0x3ff20a00)[141] = ((arg2[5] << 8) | arg2[4]);
+		((volatile uint32 *)0x3ff20a00)[144] = 0xffffffff;
+		((volatile uint32 *)0x3ff20a00)[145] = 0x0000ffff;
+		((volatile uint32 *)0x3ff20a00)[145] |= 0x00010000;
+	}
+}
 
-	if ($a2 == NULL)
-		goto _0x40247893;
-
-	/* 0x4024731 */
+/* 0x402478f8 */
+void ICACHE_FLASH_ATTR wDev_ClearBssid(uint32 arg1)
+{
+	if (arg1 == 0)
+		((volatile uint32 *)0x3ff20a00)[143] &= 0xfffeffff;
+	else
+		((volatile uint32 *)0x3ff20a00)[145] &= 0xfffeffff;
 }
 
 /* 0x40247930 */
-void wDev_Insert_KeyEntry(uint32 arg1, uint32 arg2, uint32 arg3, uint8 *arg4, uint32 arg5, uint32 *arg6, uint32 arg7)
+/* Not too sure about that one... Alot of weird operations in assembly. */
+void ICACHE_FLASH_ATTR wDev_Insert_KeyEntry(uint32 arg1, uint32 arg2, uint32 arg3, uint8 *arg4,
+							uint32 arg5, uint8 *arg6, uint32 arg7)
 {
-	// stub
+	uint32 a1_4;		/* $a1 + 4 */ /* Note: this never gets initialized... */
+	uint32 a0, a9;		/* $a0, $a9 */
+
+	a9 = (arg1 == 5 ? 1 : 0);
+	a0 = (arg1 == 5 ? 7 : (arg5 < 6 ? 6 : 2));
+
+	if (arg1 == 5)
+		arg1 = 1;
+
+	((volatile uint32 *)0x3ff21200 + 10 * arg5)[128] = (arg4[3] << 24) + (arg4[2] << 16) + (arg4[1] << 8) + arg4[0];
+	((volatile uint32 *)0x3ff21200 + 10 * arg5)[129] = (arg3 << 30) + ((arg2 & 0x1) << 24) + \
+							   ((a0 & 0x7) << 21) + ((arg1 & 0x7) << 18) + \
+							   ((a9 & 0x3) << 16) + (arg4[5] << 8) + arg4[4];
+
+	((volatile uint32 *)0x3ff20600)[130] |= (1 << arg5);
+
+	if ((arg2 < 2) && (arg5 >= 2))
+		*((uint32 *)&wDevCtrl + 14 + arg2) |= (1 << arg5);
+
+	ets_memcpy((uint8 *)0x3ff21408 + 40 * arg5, arg6, arg7);
+}
+
+/* 0x40247a04 */
+void ICACHE_FLASH_ATTR wDev_Remove_KeyEntry(uint32 arg1)
+{
+	((volatile uint32 *)0x3ff20600)[131] &= ((1 << arg1) ^ 0xffffffff);
+	((volatile uint32 *)0x3ff21200 + 10 * arg1)[129] &= 0xff1fffff;
 }
 
 /* <wDev_Crypto_Conf+0x4c> */
-static void _0x40247a94()
+static void ICACHE_FLASH_ATTR _0x40247a94()
 {
 	((volatile uint32 *)0x3ff20600)[128] = 0x00030000;
 	((volatile uint32 *)0x3ff20600)[129] = 0x00030000;
@@ -1199,14 +1264,14 @@ static void _0x40247a94()
 	((volatile uint32 *)0x3ff20600)[130] = 0;
 }
 
-/* 0x40107b20 */
-void wDevEnableRx()
+/* 0x40247b20 */
+void ICACHE_FLASH_ATTR wDevEnableRx()
 {
 	((volatile uint32 *)0x3ff1fe00)[129] |= 0x80000000;
 }
 
 /* 0x40247b4c */
-void wdev_go_sniffer()
+void ICACHE_FLASH_ATTR wdev_go_sniffer()
 {
 	wDevCtrl.f_5 = 1;
 
@@ -1232,7 +1297,7 @@ void wdev_go_sniffer()
 }
 
 /* 0x40247c28 */
-void wdev_set_sniffer_addr(uint8 *arg1)
+void ICACHE_FLASH_ATTR wdev_set_sniffer_addr(uint8 *arg1)
 {
 	((volatile uint32 *)0x3ff1fe00)[155] |= 1;
 	((volatile uint32 *)0x3ff1fe00)[155] |= 2;
@@ -1241,7 +1306,7 @@ void wdev_set_sniffer_addr(uint8 *arg1)
 }
 
 /* 0x40247c84 */
-void wdev_exit_sniffer()
+void ICACHE_FLASH_ATTR wdev_exit_sniffer()
 {
 	if (wDevCtrl.f_5 == 0)
 		return;
