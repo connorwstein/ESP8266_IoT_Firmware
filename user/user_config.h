@@ -13,6 +13,6 @@
 #define MQTT_DEVICE_ID	"client_id"
 #define MQTT_USER	""
 #define MQTT_PASS	""
-#define MQTT_KEEPALIVE	120
+#define MQTT_KEEPALIVE	0
 
 #endif
