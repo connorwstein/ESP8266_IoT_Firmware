@@ -18,7 +18,8 @@ enum DeviceType_t {
 	NONE = 0,
 	TEMPERATURE,
 	THERMOSTAT,
-	LIGHTING
+	LIGHTING,
+	CAMERA
 };
 
 struct DeviceConfig {
