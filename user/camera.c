@@ -108,7 +108,7 @@ void ICACHE_FLASH_ATTR camera_power_saving_on()
 void ICACHE_FLASH_ATTR camera_power_saving_off()
 {
 	uint8 command[] = {'\x56', '\x00', '\x3e', '\x03', '\x00', '\x01', '\x00'};
-	bitbang_send(command, sizeof commmand, baud_rate);
+	bitbang_send(command, sizeof command, baud_rate);
 }
 
 void ICACHE_FLASH_ATTR camera_set_baud_rate(uint32 baud)
