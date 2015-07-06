@@ -8,7 +8,7 @@
 #define TOTICKS(x) ((x)*5)>>4
 
 uint32 baud = 38400;
-uint32 delay = 8;
+uint32 delay = 25;
 
 
 void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len)
