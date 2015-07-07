@@ -46,89 +46,30 @@ void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len)
 void bit_bang_read_byte(uint32 intr_mask, void *arg)
 {
 	uint32 clock;
-	uint8 byte = -1;
-	uint8 bit, bit1;
-	int i;
+	int i=0;
+	gpio_intr_ack(intr_mask);
+	uint32 gpio_status=GPIO_REG_READ(GPIO_STATUS_ADDRESS);
+	//gpio_pin_intr_state_set(5,GPIO_PIN_INTR_NEGEDGE); 
 	
-	
-	/* Check if this is a start bit */
-	/* Record current clock time */
-	clock = NOW();
-
-	/* Check that the signal is stable by waiting for half the bit time. */
-	while (((bit = GPIO_INPUT_GET(5)) == 0) && (NOW() - clock < TOTICKS(delay / 2)));
-
-	/* If signal went back to 1, assume it's noise and return. */
-	if (bit == 1)
-		// ets_uart_printf("Noise on start bit\n");
-		return;
-
-	ets_uart_printf("Read callback\n");
-
-	/* Wait for the rest of the bit time */
-	while (NOW() - clock < TOTICKS(delay));
-
-	clock = NOW();
-
-	/* Read data bits */
-	for (i = 0; i < 8; i++) {
-		/* Read current data bit value */
-		bit = GPIO_INPUT_GET(5);
-
-		/* Check that the data bit value remains stable for half the bit time */
-		while (((bit1 = GPIO_INPUT_GET(5)) == bit1) && (NOW() - clock < TOTICKS(delay / 2)));
-
-		/* If signal changed. */
-		if (bit1 != bit)
-			ets_uart_printf("Noisey bit\n");
-			return;
-
-		/* Wait for the rest of the bit time */
-		while (NOW() - clock < TOTICKS(delay / 2));
-
-		clock = NOW();
-
-		/* Shift in the data bit */
-		byte <<= 1;
-		byte |= bit;
+	uint8 buffer[500];
+	clock=NOW();
+	while((NOW()-clock)<TOTICKS(400)&&i<500){
+		buffer[i++]=GPIO_INPUT_GET(5);
 	}
-
-	/* Wait for stop bit */
-	/* Wait until we get a HIGH signal */
-	while ((bit = GPIO_INPUT_GET(5)) == 0 && (NOW() - clock < TOTICKS(delay / 2)));
-
-	/* If we haven't received the stop bit for half a bit time, return. */
-	if (NOW() - clock >= TOTICKS(delay / 2))
-		ets_uart_printf("No stop bits\n");
-		return;
-
-	/* Record current clock time */
-	clock = NOW();
-
-	/* Check that the signal is stable by waiting for half the bit time. */
-	while (((bit = GPIO_INPUT_GET(5)) == 1) && (NOW() - clock < TOTICKS(delay / 2)));
-
-	/* If signal went back to 0, assume it's noise and return. */
-	if (bit == 0)
-		ets_uart_printf("Stop bit noise\n");
-		return;
-
-	if (arg == NULL)
-		ets_uart_printf("Null arg\n");
-		return;
-
-	ets_uart_printf("Successfully received byte: %c\n",byte);
-	// if (((struct rx_buffer *)arg)->len == ((struct rx_buffer *)arg)->max)
-	// 	return;
-
-	// ((struct rx_buffer *)arg)->data[((struct rx_buffer *)arg)->len++] = byte;
-	// ((struct rx_buffer *)arg)->read_done_cb();
+	ets_uart_printf("Intr Mask: %08x Gpio Status: %08x\n",intr_mask, gpio_status);
+	ets_uart_printf("i: %d DATA: ",i);
+	int k;
+	for(k=0;k<i;k++){
+		ets_uart_printf("%d",buffer[k]);
+	}
+	ets_uart_printf("\n");
+	GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status);
 }
 
 #endif
 void ICACHE_FLASH_ATTR init_done()
 {
-	char *string = "HELLO WORLD!\n";
+	char *string = "HELLO WORLD!\r\n";
 	char data[10];
 	int i;
 
@@ -138,14 +79,17 @@ void ICACHE_FLASH_ATTR init_done()
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO5_U);
 	GPIO_DIS_OUTPUT(5);
 
+	for (i = 0; i < 10; i++) {
+		ets_uart_printf("Sending byte\n");
+		bit_bang_send(string, strlen(string));
+		os_delay_us(100000);
+	}
+	
 	ETS_GPIO_INTR_ATTACH(bit_bang_read_byte, NULL);
-	gpio_pin_intr_state_set(GPIO_ID_PIN(5), GPIO_PIN_INTR_NEGEDGE);
+	ETS_GPIO_INTR_DISABLE();
+	gpio_pin_intr_state_set(5,GPIO_PIN_INTR_NEGEDGE);  
 	ETS_GPIO_INTR_ENABLE();
 
-	for (i = 0; i < 10; i++) {
-		bit_bang_send(string, strlen(string));
-		os_delay_us(1000000);
-	}
 }
 
 void ICACHE_FLASH_ATTR user_init()
