@@ -1,6 +1,8 @@
-# ESP8266_stuff
+# ESP8266_IoT_Manager
 
-The project currently works with SDK version 1.1.0 or later.
+Firmware for the ESP8266 Wifi Chip to be used in conjunction with the [Android app](http://github.com/connorwstein/IoTManager) to manage a network of ESP8266 devices. The firmware supports that reading from the DHT sensor AM2302 as well as taking pictures with the LinkSprite JPEG Camera.  
+
+The project currently works with SDK (esp-open-sdk) version 1.1.0 or later.
 
 There was a problem with the wifi_handler in the SDK version 1.0.1,
 where the EVENT_STAMODE_GOT_IP event does not actually set the ip
