@@ -10,6 +10,8 @@
 uint32 baud = 38400;
 uint32 delay = 25;
 
+uint8 buffer_raw[400];
+//TEST COMMIT IN PRIVATE REPO
 
 void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len)
 {
@@ -42,19 +44,17 @@ void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len)
 	GPIO_DIS_OUTPUT(4);
 }
 
-#if 1
+
 void bit_bang_read_byte(uint32 intr_mask, void *arg)
 {
 	uint32 clock;
 	int i=0;
 	gpio_intr_ack(intr_mask);
-	uint32 gpio_status=GPIO_REG_READ(GPIO_STATUS_ADDRESS);
-	//gpio_pin_intr_state_set(5,GPIO_PIN_INTR_NEGEDGE); 
-	
-	uint8 buffer[500];
+	uint32 gpio_status=GPIO_REG_READ(GPIO_STATUS_ADDRESS);	
+	// uint8 buffer[500];
 	clock=NOW();
 	while((NOW()-clock)<TOTICKS(400)&&i<500){
-		buffer[i++]=GPIO_INPUT_GET(5);
+		buffer_raw[i++]=GPIO_INPUT_GET(5);
 	}
 	ets_uart_printf("Intr Mask: %08x Gpio Status: %08x\n",intr_mask, gpio_status);
 	ets_uart_printf("i: %d DATA: ",i);
@@ -66,7 +66,7 @@ void bit_bang_read_byte(uint32 intr_mask, void *arg)
 	GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status);
 }
 
-#endif
+
 void ICACHE_FLASH_ATTR init_done()
 {
 	char *string = "HELLO WORLD!\r\n";
@@ -78,7 +78,8 @@ void ICACHE_FLASH_ATTR init_done()
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO4_U);
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO5_U);
 	GPIO_DIS_OUTPUT(5);
-
+	//For some reason sending this data after the interrupts have been attached 
+	//causes the interrupts to not work?
 	for (i = 0; i < 10; i++) {
 		ets_uart_printf("Sending byte\n");
 		bit_bang_send(string, strlen(string));
