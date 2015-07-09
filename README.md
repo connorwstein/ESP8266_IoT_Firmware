@@ -1,6 +1,6 @@
 # ESP8266_IoT_Manager
 
-Firmware for the ESP8266 Wifi Chip to be used in conjunction with the [Android app](http://github.com/connorwstein/IoTManager) to manage a network of ESP8266 devices. The firmware supports that reading from the DHT sensor AM2302 as well as taking pictures with the LinkSprite JPEG Camera.  
+Firmware for the ESP8266 Wifi Chip to be used in conjunction with the [Android app](http://github.com/connorwstein/IoTManager) to manage a network of ESP8266 devices. The firmware supports reading from the AM2302 DHT sensor as well as taking pictures with the LinkSprite JPEG Camera.  
 
 The project currently works with SDK (esp-open-sdk) version 1.1.0 or later.
 
