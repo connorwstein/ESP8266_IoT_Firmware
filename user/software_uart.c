@@ -12,7 +12,7 @@ uint32 baud_rate=38400;
 uint8 reading_instruction_delay=3;
 
 uint16 byte_count=0;
-uint8 buffer[3]={0};
+uint8 buffer[60]={0};
 void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len, uint32 baud_rate_set)
 {
 	// ETS_GPIO_INTR_DISABLE();
@@ -51,23 +51,21 @@ void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len, uint32 baud_r
 	// ETS_GPIO_INTR_ENABLE();
 }
 void bit_bang_read_byte(uint32 intr_mask, void *arg){
+	int clock=NOW();
 	int i=0;
 	uint8 byte=0;
-	
 	gpio_intr_ack(intr_mask);
 	uint32 gpio_status=GPIO_REG_READ(GPIO_STATUS_ADDRESS);	
-	ets_uart_printf("Intrmask %d gpiostatus %d\n",intr_mask, gpio_status);
-	//if(gpio_status==0) return; //Not actual data when gpio_status is 0
-	
-	os_delay_us(26); 
-	os_delay_us(13); //wait until halfway through the first real bit to minimize errors
+	if(gpio_status==0) return; //Not actual data when gpio_status is 0
+	while((NOW()-clock)<TOTICKS(26+13)); //wait until middle of first bo
+	clock=NOW();
 	while(i<BITS_IN_BYTE){
 		//loop through next 8 bits, putting each read into a single bit of "byte"
 		byte=(byte>>1)|(GPIO_INPUT_GET(5)<<(BITS_IN_BYTE-1)); 
-		os_delay_us(23); // 23 rather than 26, because the read above takes some time
+		while((NOW()-clock)<TOTICKS(26)); // 23 rather than 26, because the read above takes some time
+		clock=NOW();
 		i++;
 	}
-	//ets_uart_printf("Byte: %c Hex: %08x Byte Count: %d\n",byte,byte,byte_count);
 	buffer[byte_count++]=byte;
 	if(byte_count>=sizeof(buffer)){
 		int j=0;
@@ -79,7 +77,7 @@ void bit_bang_read_byte(uint32 intr_mask, void *arg){
 		ets_uart_printf("\n Received Ascii \n");
 		j=0;
 		while(j<sizeof(buffer)){
-			ets_uart_printf("%c",buffer[j]);
+			ets_uart_printf(" %c",buffer[j]);
 			j++;
 		}
 		ets_uart_printf("\n");
