@@ -56,7 +56,7 @@ void ICACHE_FLASH_ATTR init_done()
 
 	// if (ap_server_init() != 0)
 	// 	ets_uart_printf("Failed to initialize ap server.\n");
-	camera_init();
+	camera_init(38400,4,5);
 	camera_reset();
 	DEBUG("exit init_done");
 }

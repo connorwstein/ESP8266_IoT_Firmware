@@ -3,18 +3,25 @@
 #include "gpio.h"
 #include "software_uart.h"
 #include "ets_sys.h"
+#include "mem.h"
 
-#define GPIO_TX_PIN 4
-#define GPIO_RX_PIN 5
+#define RESET_RESPONSE_SIZE 71
 
 static uint32 baud_rate = 38400;
+static uint8 gpio_camera_rx;
+static uint8 gpio_camera_tx;
+
+
 
 void ICACHE_FLASH_ATTR camera_reset()
 {
 	uint8 command[] = {'\x56', '\x00', '\x26', '\x00'};
-	int reset_response=60;
+	uint8 *buffer=(uint8*)os_zalloc(RESET_RESPONSE_SIZE);
+	rx_buffer *reset_buf=(rx_buffer*)os_zalloc(sizeof(rx_buffer));
+	reset_buf->size=RESET_RESPONSE_SIZE;
+	reset_buf->buf=buffer;
 	ets_uart_printf("Resetting camera...\n");
-	enable_interrupts(5,&reset_response);
+	enable_interrupts(gpio_camera_tx,reset_buf);
 	bit_bang_send(command,sizeof command,baud_rate);
 }
 
@@ -110,17 +117,19 @@ void ICACHE_FLASH_ATTR camera_set_baud_rate(uint32 baud)
 	baud_rate = baud;
 }
 
-void ICACHE_FLASH_ATTR camera_init(uint32 baud_rate_set)
+void ICACHE_FLASH_ATTR camera_init(uint32 baud_rate_set, uint8 gpio_camera_rx_set, uint8 gpio_camera_tx_set)
 {
 	gpio_init();
 	baud_rate=baud_rate_set;
-	ets_uart_printf("CAMERA INIT\n");
+	gpio_camera_rx=gpio_camera_rx_set;
+	gpio_camera_tx=gpio_camera_tx_set;
+
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO4_U);
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO5_U);
 
-	GPIO_DIS_OUTPUT(GPIO_RX_PIN);
-	//GPIO_DIS_OUTPUT(GPIO_TX_PIN);
+	GPIO_DIS_OUTPUT(gpio_camera_rx);
 	ets_wdt_disable();
+	ets_uart_printf("Camera initialized. Rx: %d Tx: %d\n",gpio_camera_rx,gpio_camera_tx);
 }

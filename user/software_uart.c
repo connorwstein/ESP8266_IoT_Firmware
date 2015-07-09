@@ -5,17 +5,17 @@
 #include "osapi.h"
 #include "mem.h"
 
+#include "software_uart.h"
+
 #define TOTICKS(x) ((x)*5)>>4
 #define BITS_IN_BYTE 8
 
-uint32 baud_rate=38400;
-uint8 reading_instruction_delay=3;
+uint32 baud_rate=38400; //default baudrate
+static uint16 byte_count=0;
+rx_buffer *buffer=NULL;
 
-uint16 byte_count=0;
-uint8 buffer[60]={0};
 void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len, uint32 baud_rate_set)
 {
-	// ETS_GPIO_INTR_DISABLE();
 	gpio_pin_intr_state_set(5,GPIO_PIN_INTR_DISABLE); 
 
 	ets_uart_printf("SENDING at %d, each bit %d\n",baud_rate,1000000/baud_rate);
@@ -39,6 +39,7 @@ void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len, uint32 baud_r
 			os_delay_us(25);
 			byte >>= 1;
 			j++;
+			//ets_uart_printf("Send byte\n");
 		}
 
 		/* Stop bit */
@@ -46,19 +47,20 @@ void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len, uint32 baud_r
 		os_delay_us(26);
 	}
 
-	//GPIO_DIS_OUTPUT(4);
 	gpio_pin_intr_state_set(5,GPIO_PIN_INTR_NEGEDGE); 
-	// ETS_GPIO_INTR_ENABLE();
+	//ets_uart_printf("Done sending\n");
 }
-void bit_bang_read_byte(uint32 intr_mask, void *arg){
+void bit_bang_read_byte(uint32 intr_mask, void* arg){
 	int clock=NOW();
 	int i=0;
 	uint8 byte=0;
+
 	gpio_intr_ack(intr_mask);
 	uint32 gpio_status=GPIO_REG_READ(GPIO_STATUS_ADDRESS);	
 	if(gpio_status==0) return; //Not actual data when gpio_status is 0
 	while((NOW()-clock)<TOTICKS(26+13)); //wait until middle of first bo
 	clock=NOW();
+	
 	while(i<BITS_IN_BYTE){
 		//loop through next 8 bits, putting each read into a single bit of "byte"
 		byte=(byte>>1)|(GPIO_INPUT_GET(5)<<(BITS_IN_BYTE-1)); 
@@ -66,30 +68,30 @@ void bit_bang_read_byte(uint32 intr_mask, void *arg){
 		clock=NOW();
 		i++;
 	}
-	buffer[byte_count++]=byte;
-	if(byte_count>=sizeof(buffer)){
+	
+	buffer->buf[byte_count++]=byte;
+	if(byte_count>=buffer->size){
 		int j=0;
-		ets_uart_printf("\n Gpiostatus %d Received Hex \n",gpio_status);
-		while(j<sizeof(buffer)){
-			ets_uart_printf(" %02x",buffer[j]);
+		ets_uart_printf("\n Received Hex \n",gpio_status);
+		while(j<buffer->size){
+			ets_uart_printf(" %02x",buffer->buf[j]);
 			j++;
 		}
 		ets_uart_printf("\n Received Ascii \n");
 		j=0;
-		while(j<sizeof(buffer)){
-			ets_uart_printf(" %c",buffer[j]);
+		while(j<buffer->size){
+			ets_uart_printf(" %c",buffer->buf[j]);
 			j++;
 		}
 		ets_uart_printf("\n");
 		byte_count=0;
-		os_memset(buffer,0,sizeof buffer);
+		os_memset(buffer->buf,0,buffer->size);
 	}
 	GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status);
 }
-void ICACHE_FLASH_ATTR enable_interrupts(uint8 gpio_pin,uint32 *buffer_size){
-	//buffer=(uint8*)os_zalloc(*buffer_size);
-	ets_uart_printf("ENABLED INTERRUPTS\n");
-	ETS_GPIO_INTR_ATTACH(bit_bang_read_byte, NULL);
+void ICACHE_FLASH_ATTR enable_interrupts(uint8 gpio_pin, rx_buffer* buffer_set){
+	buffer=buffer_set;
+	ETS_GPIO_INTR_ATTACH(bit_bang_read_byte,NULL);
 	ETS_GPIO_INTR_DISABLE(); 
 	ETS_GPIO_INTR_ENABLE();
 }
