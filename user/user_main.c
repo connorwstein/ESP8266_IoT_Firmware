@@ -58,6 +58,8 @@ void ICACHE_FLASH_ATTR init_done()
 	// 	ets_uart_printf("Failed to initialize ap server.\n");
 	camera_init(38400,4,5);
 	camera_reset();
+	//os_delay_us(3000000);
+	//camera_take_picture();
 	DEBUG("exit init_done");
 }
 
@@ -72,12 +74,15 @@ void ICACHE_FLASH_ATTR init_done()
 
 // 	DEBUG("exit wifi_timer_cb");
 // }
-
+void ICACHE_FLASH_ATTR take_pic(void* timer_arg){
+	//ets_uart_printf("CALLED TAKE PIC\n");
+	camera_take_picture();
+}
 void ICACHE_FLASH_ATTR user_init()
 {
 	DEBUG("enter user_init");
 	//static ETSTimer wifi_connect_timer;
-
+	static ETSTimer takepictimer;
 	//system_restore();
 	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
@@ -110,7 +115,8 @@ void ICACHE_FLASH_ATTR user_init()
 	// 	ets_uart_printf("Unable to set auto connect.\n");
 	
 	system_init_done_cb(&init_done);
-
+	os_timer_setfn(&takepictimer, take_pic, NULL);
+	os_timer_arm(&takepictimer, 1000, true); 
 	// os_timer_setfn(&wifi_connect_timer, wifi_timer_cb, NULL);
 	// os_timer_arm(&wifi_connect_timer, AUTO_CONNECT_TIMEOUT, false); 
 	// DEBUG("exit user_init");

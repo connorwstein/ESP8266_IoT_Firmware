@@ -4,31 +4,59 @@
 #include "software_uart.h"
 #include "ets_sys.h"
 #include "mem.h"
+#include "osapi.h"
 
 #define RESET_RESPONSE_SIZE 71
-
+#define TAKE_PICTURE_RESPONSE_SIZE 4
 static uint32 baud_rate = 38400;
 static uint8 gpio_camera_rx;
 static uint8 gpio_camera_tx;
 
 
+static rx_buffer* ICACHE_FLASH_ATTR create_rx_buffer(uint16 response_size){
+	uint8 *buffer=(uint8*)os_zalloc(response_size);
+	rx_buffer *buffer_struct=(rx_buffer*)os_zalloc(sizeof(rx_buffer));
+	buffer_struct->size=response_size;
+	buffer_struct->buf=buffer;
+	return buffer_struct;
+}
+
+static void ICACHE_FLASH_ATTR destroy_rx_buffer(rx_buffer* buffer_to_kill){
+	flush_read_buffer(); 
+	os_free(buffer_to_kill->buf);
+	os_free(buffer_to_kill);
+}
+
+static void ICACHE_FLASH_ATTR print_rx_buffer(rx_buffer* buffer){
+	ets_uart_printf("Response: ");
+	int j=0;
+	while(j<buffer->size)
+		ets_uart_printf("%c",buffer->buf[j++]);
+	ets_uart_printf("\n");
+}
 
 void ICACHE_FLASH_ATTR camera_reset()
 {
 	uint8 command[] = {'\x56', '\x00', '\x26', '\x00'};
-	uint8 *buffer=(uint8*)os_zalloc(RESET_RESPONSE_SIZE);
-	rx_buffer *reset_buf=(rx_buffer*)os_zalloc(sizeof(rx_buffer));
-	reset_buf->size=RESET_RESPONSE_SIZE;
-	reset_buf->buf=buffer;
 	ets_uart_printf("Resetting camera...\n");
-	enable_interrupts(gpio_camera_tx,reset_buf);
+	rx_buffer* reset_buffer=create_rx_buffer(RESET_RESPONSE_SIZE);
+	enable_interrupts(gpio_camera_tx,reset_buffer);
 	bit_bang_send(command,sizeof command,baud_rate);
+	while(!read_buffer_full()); //wait until buffer is full
+	print_rx_buffer(reset_buffer);
+	destroy_rx_buffer(reset_buffer);
 }
 
 void ICACHE_FLASH_ATTR camera_take_picture()
 {
 	uint8 command[] = {'\x56', '\x00', '\x36', '\x01', '\x00'};
-	bit_bang_send(command, sizeof command, baud_rate);
+	rx_buffer* take_picture_buffer=create_rx_buffer(TAKE_PICTURE_RESPONSE_SIZE);
+	ets_uart_printf("Taking picture...\n");
+	enable_interrupts(gpio_camera_tx,take_picture_buffer);
+	bit_bang_send(command,sizeof command,baud_rate);
+	while(!read_buffer_full()); //wait until buffer is full
+	print_rx_buffer(take_picture_buffer);
+	destroy_rx_buffer(take_picture_buffer);
 }
 
 void ICACHE_FLASH_ATTR camera_read_size()
