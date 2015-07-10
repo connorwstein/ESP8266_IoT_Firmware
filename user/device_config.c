@@ -8,6 +8,8 @@
 #include "helper.h"
 #include "debug.h"
 
+#include "camera.h"
+
 void ICACHE_FLASH_ATTR DeviceConfig_delete(struct DeviceConfig *conf)
 {
 	DEBUG("enter DeviceConfig_delete");
@@ -206,4 +208,34 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_data(const void *data, uint32 len)
 	ets_uart_printf("\n");
 	DEBUG("exit DeviceConfig_set_data");
 	return 0;
+}
+
+bool ICACHE_FLASH_ATTR DeviceInit()
+{
+	DEBUG("enter DeviceInit");
+	struct DeviceConfig conf;
+
+	if (!DeviceConfig_already_exists())
+		return false;
+
+	if (DeviceConfig_read_config(&conf) != 0)
+		return false;
+
+	switch (conf.type) {
+		case CAMERA:
+				camera_init(38400, 5, 4);
+
+				if (camera_reset() != 0) {
+					ets_uart_printf("Failed to reset camera.\n");
+					return false;
+				}
+
+				break;
+
+		default:
+				break;
+	}
+
+	DEBUG("exit DeviceInit");
+	return true;
 }

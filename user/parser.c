@@ -2,6 +2,7 @@
 #include "osapi.h"
 #include "ip_addr.h"
 #include "espconn.h"
+#include "mem.h"
 
 #include "helper.h"
 #include "network_cmds.h"
@@ -9,6 +10,7 @@
 
 #include "temperature.h"
 #include "lighting.h"
+#include "camera.h"
 
 #include "debug.h"
 
@@ -53,6 +55,8 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 			rc = DeviceConfig_set_type(THERMOSTAT);
 		else if (os_strcmp(params, "Lighting") == 0)
 			rc = DeviceConfig_set_type(LIGHTING);
+		else if (os_strcmp(params, "Camera") == 0)
+			rc = DeviceConfig_set_type(CAMERA);
 
 		if (rc != 0)
 			send_reply("Failed", (struct espconn *)arg);
@@ -80,6 +84,7 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 				Temperature_get_temperature((struct espconn *)arg);
 			else if (os_strcmp(cmd, "Hello Temperature Devices?") == 0)
 				udp_send_ipmac((struct espconn *)arg);
+
 			break;
 		case THERMOSTAT:
 			if (os_strcmp(cmd, "Hello Thermostat Devices?") == 0)
@@ -91,8 +96,37 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 				Lighting_get_light((struct espconn *)arg);
 			else if (os_strcmp(cmd, "Lighting Set") == 0)
 				Lighting_toggle_light();
-			if (os_strcmp(cmd, "Hello Lighting Devices?") == 0)
+			else if (os_strcmp(cmd, "Hello Lighting Devices?") == 0)
 				udp_send_ipmac((struct espconn *)arg);
+
+			break;
+		case CAMERA:
+			if (os_strcmp(cmd, "Camera Take Picture") == 0) {
+				if (camera_take_picture() == 0) {
+					send_reply("Picture Taken", (struct espconn *)arg);
+				} else {
+					ets_uart_printf("Failed to take picture.\n");
+					send_reply("Picture Take Fail", (struct espconn *)arg);
+				}
+			} else if (os_strcmp(cmd, "Camera Get Picture") == 0) {
+				uint16 size;
+
+				if (camera_read_size(&size) == 0) {
+					ets_uart_printf("Got picture size: %d bytes\n", size);
+				} else {
+					ets_uart_printf("Failed to read picture size.\n");
+					send_reply("Picture Got Fail", (struct espconn *)arg);
+				}
+
+				if (camera_read_content(0x0000, 10, 0x0a00, (struct espconn *)arg) == 0) {
+					send_reply("Picture Got", (struct espconn *)arg);
+				} else {
+					ets_uart_printf("Failed to read picture contents.\n");
+					send_reply("Picture Got Fail", (struct espconn *)arg);
+				}
+			} else if (os_strcmp(cmd, "Hello Camera Devices?") == 0) {
+				udp_send_ipmac((struct espconn *)arg);
+			}
 
 			break;
 		default:

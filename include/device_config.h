@@ -39,4 +39,6 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_name(const char *name);
 int ICACHE_FLASH_ATTR DeviceConfig_set_type(enum DeviceType_t type);
 int ICACHE_FLASH_ATTR DeviceConfig_set_data(const void *data, uint32 len);
 
+bool ICACHE_FLASH_ATTR DeviceInit();
+
 #endif
