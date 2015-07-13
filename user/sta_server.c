@@ -387,8 +387,10 @@ void sta_server_send_large_buffer(struct espconn *conn, uint8 *buf, uint16 len)
 		os_free(buf);
 	} else {
 		/* If we got disconnected before starting the send, tcp might become NULL... */
-		if (conn->proto.tcp == NULL)
+		if (conn->proto.tcp == NULL) {
+			os_free(buf);
 			return;
+		}
 
 		large_buffer = buf;
 		cur_buffer = large_buffer;
