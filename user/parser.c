@@ -124,6 +124,9 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 					ets_uart_printf("Failed to read picture contents.\n");
 					send_reply("Picture Got Fail", (struct espconn *)arg);
 				}
+			} else if (os_strcmp(cmd, "Camera Stop Picture") == 0) {
+				if (camera_stop_pictures() != 0)
+					ets_uart_printf("Failed to stop taking pictures.\n");
 			} else if (os_strcmp(cmd, "Hello Camera Devices?") == 0) {
 				udp_send_ipmac((struct espconn *)arg);
 			}

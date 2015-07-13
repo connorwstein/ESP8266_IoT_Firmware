@@ -10,5 +10,6 @@ int ICACHE_FLASH_ATTR camera_take_picture();
 int ICACHE_FLASH_ATTR camera_read_size(uint16 *size_p);
 int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
 					uint16 spacing_int, struct espconn *rep_conn);
+int ICACHE_FLASH_ATTR camera_stop_pictures();
 
 #endif

@@ -7,6 +7,7 @@
 #include "ip_addr.h"
 #include "espconn.h"
 
+#include "camera.h"
 #include "software_uart.h"
 #include "sta_server.h"
 
@@ -14,6 +15,7 @@
 #define TAKE_PICTURE_RESPONSE_SIZE	5
 #define READ_SIZE_RESPONSE_SIZE		9
 #define READ_CONTENT_RESPONSE_SIZE	5
+#define STOP_PICTURES_RESPONSE_SIZE	5
 
 static rx_buffer *previous_rxbuffer = NULL;
 
@@ -167,10 +169,32 @@ int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
 	return 0;
 }
 
-void ICACHE_FLASH_ATTR camera_stop_pictures()
+int ICACHE_FLASH_ATTR camera_stop_pictures()
 {
 	uint8 command[] = {'\x56', '\x00', '\x36', '\x01', '\x03'};
+	uint8 success[] = {'\x76', '\x00', '\x36', '\x00', '\x00'};
+	rx_buffer *stop_pictures_buffer;
+
+	stop_pictures_buffer = create_rx_buffer(STOP_PICTURES_RESPONSE_SIZE, NULL);
+
+	if (stop_pictures_buffer == NULL)
+		return -1;
+
+	ets_uart_printf("Stop taking pictures...\n");
+	enable_interrupts(gpio_camera_tx, stop_pictures_buffer); // TODO: Fix the gpio pins!
 	bit_bang_send(command, sizeof command, baud_rate);
+
+	while (!read_buffer_full()); //wait until buffer is full
+
+	print_rx_buffer(stop_pictures_buffer);
+
+	if (os_memcmp(stop_pictures_buffer->buf, success, sizeof success) != 0) {
+		destroy_rx_buffer(stop_pictures_buffer);
+		return 1;
+	}
+
+	destroy_rx_buffer(stop_pictures_buffer);
+	return 0;
 }
 
 void ICACHE_FLASH_ATTR camera_compression_ratio(uint8 ratio)
