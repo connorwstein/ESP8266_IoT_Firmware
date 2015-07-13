@@ -15,6 +15,8 @@
 #define READ_SIZE_RESPONSE_SIZE		9
 #define READ_CONTENT_RESPONSE_SIZE	5
 
+static rx_buffer *previous_rxbuffer = NULL;
+
 static uint32 baud_rate = 38400;
 static uint8 gpio_camera_rx;
 static uint8 gpio_camera_tx;
@@ -43,6 +45,7 @@ static void camera_picture_recv_done(rx_buffer *buffer)
 
 	sta_server_send_large_buffer(reply_conn, buffer->buf, buffer->size);
 	os_free(buffer);
+	previous_rxbuffer = NULL;
 }
 
 int ICACHE_FLASH_ATTR camera_reset()
@@ -138,6 +141,10 @@ int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
 	uint8 success[] = {'\x76', '\x00', '\x32', '\x00', '\x00'};
 	rx_buffer *read_content_buffer;
 
+	/* In case the previous request was never finished, need to free it here */
+	if (previous_rxbuffer != NULL)
+		destroy_rx_buffer(previous_rxbuffer);
+
 	command[8] = (uint8)((init_addr >> 8) & 0xff);
 	command[9] = (uint8)(init_addr & 0xff);
 	command[12] = (uint8)((data_len >> 8) & 0xff);
@@ -154,7 +161,9 @@ int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
 	ets_uart_printf("Reading picture contents...\n");
 	enable_interrupts(gpio_camera_tx, read_content_buffer);
 	bit_bang_send(command, sizeof command, baud_rate);
+	previous_rxbuffer = read_content_buffer;
 
+	ets_uart_printf("Free heap size = %u\n", system_get_free_heap_size());
 	return 0;
 }
 

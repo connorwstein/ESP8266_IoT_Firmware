@@ -92,8 +92,13 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 		} else {
 			rc = espconn_sent((struct espconn *)arg, cur_buffer, TCP_MAX_PACKET_SIZE);
 
-			if (rc != ESPCONN_OK)
+			if (rc != ESPCONN_OK) {
 				ets_uart_printf("espconn_sent failed: %d\n", rc);
+				os_free(large_buffer);
+				large_buffer = NULL;
+				cur_buffer = NULL;
+				large_buffer_len = 0;
+			}
 		}
 	}
 
@@ -286,6 +291,15 @@ void sta_server_send_large_buffer(struct espconn *conn, uint8 *buf, uint16 len)
 {
 	int rc;
 
+	/* We won't send two picture requests at the same time, so if the large buffer is non-NULL,
+	   free it here to avoid memory leaks. It means a previous picture take was never successful. */
+	if (large_buffer != NULL) {
+		os_free(large_buffer);
+		large_buffer = NULL;
+		cur_buffer = NULL;
+		large_buffer_len = 0;
+	}
+
 	if (len <= TCP_MAX_PACKET_SIZE) {
 		rc = espconn_sent(conn, buf, len);
 
@@ -300,7 +314,12 @@ void sta_server_send_large_buffer(struct espconn *conn, uint8 *buf, uint16 len)
 
 		rc = espconn_sent(conn, buf, TCP_MAX_PACKET_SIZE);
 
-		if (rc != ESPCONN_OK)
+		if (rc != ESPCONN_OK) {
 			ets_uart_printf("espconn_sent failed: %d\n", rc);
+			os_free(large_buffer);
+			large_buffer = NULL;
+			cur_buffer = NULL;
+			large_buffer_len = 0;
+		}
 	}
 }
