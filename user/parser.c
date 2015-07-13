@@ -118,8 +118,8 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 					send_reply("Picture Got Fail", (struct espconn *)arg);
 				}
 
-				if (camera_read_content(0x0000, 10, 0x0a00, (struct espconn *)arg) == 0) {
-					send_reply("Picture Got", (struct espconn *)arg);
+				if (camera_read_content(0x0000, size, 0x000a, (struct espconn *)arg) == 0) {
+//					send_reply("Picture Got", (struct espconn *)arg);
 				} else {
 					ets_uart_printf("Failed to read picture contents.\n");
 					send_reply("Picture Got Fail", (struct espconn *)arg);

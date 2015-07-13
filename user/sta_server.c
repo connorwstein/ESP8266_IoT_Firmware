@@ -3,6 +3,7 @@
 #include "ip_addr.h"
 #include "espconn.h"
 #include "user_interface.h"
+#include "mem.h"
 
 #include "ap_server.h"
 #include "helper.h"
@@ -11,7 +12,13 @@
 
 #include "debug.h"
 
+#define TCP_MAX_PACKET_SIZE 1460
+
 struct espconn *sta_server_conn = NULL;
+
+static uint8 *large_buffer = NULL;
+static uint8 *cur_buffer = NULL;
+static uint16 large_buffer_len = 0;
 
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
@@ -58,6 +65,7 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 	DEBUG("enter sta_tcpserver_sent_cb");
 	uint32 remote_ip;
 	int remote_port;
+	int rc;
 
 	ets_uart_printf("sta_tcpserver_sent_cb\n");
 	remote_port = ((struct espconn *)arg)->proto.tcp->remote_port;
@@ -65,6 +73,30 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 	ets_uart_printf("Sent data to %s:%d!\n",
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
+
+	if (large_buffer != NULL) {
+		ets_uart_printf("More data to send.\n");
+		large_buffer_len -= TCP_MAX_PACKET_SIZE;
+		cur_buffer += TCP_MAX_PACKET_SIZE;
+
+		if (large_buffer_len <= TCP_MAX_PACKET_SIZE) {
+			rc = espconn_sent((struct espconn *)arg, cur_buffer, large_buffer_len);
+
+			if (rc != ESPCONN_OK)
+				ets_uart_printf("espconn_sent failed: %d\n", rc);
+
+			os_free(large_buffer);
+			large_buffer = NULL;
+			cur_buffer = NULL;
+			large_buffer_len = 0;
+		} else {
+			rc = espconn_sent((struct espconn *)arg, cur_buffer, TCP_MAX_PACKET_SIZE);
+
+			if (rc != ESPCONN_OK)
+				ets_uart_printf("espconn_sent failed: %d\n", rc);
+		}
+	}
+
 	DEBUG("exit sta_tcpserver_sent_cb");
 }
 
@@ -248,4 +280,27 @@ int ICACHE_FLASH_ATTR sta_server_init_udp()
 	ets_uart_printf("Successfully initialized station mode UDP server.\n\n");
 	DEBUG("exit sta_server_init_udp");
 	return 0;
+}
+
+void sta_server_send_large_buffer(struct espconn *conn, uint8 *buf, uint16 len)
+{
+	int rc;
+
+	if (len <= TCP_MAX_PACKET_SIZE) {
+		rc = espconn_sent(conn, buf, len);
+
+		if (rc != ESPCONN_OK)
+			ets_uart_printf("espconn_sent failed: %d\n", rc);
+
+		os_free(buf);
+	} else {
+		large_buffer = buf;
+		cur_buffer = large_buffer;
+		large_buffer_len = len;
+
+		rc = espconn_sent(conn, buf, TCP_MAX_PACKET_SIZE);
+
+		if (rc != ESPCONN_OK)
+			ets_uart_printf("espconn_sent failed: %d\n", rc);
+	}
 }

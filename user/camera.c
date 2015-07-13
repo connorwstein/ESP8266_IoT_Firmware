@@ -1,12 +1,14 @@
 #include "c_types.h"
 #include "eagle_soc.h"
 #include "gpio.h"
-#include "software_uart.h"
 #include "ets_sys.h"
 #include "mem.h"
 #include "osapi.h"
 #include "ip_addr.h"
 #include "espconn.h"
+
+#include "software_uart.h"
+#include "sta_server.h"
 
 #define RESET_RESPONSE_SIZE		4
 #define TAKE_PICTURE_RESPONSE_SIZE	5
@@ -19,18 +21,6 @@ static uint8 gpio_camera_tx;
 
 struct espconn *reply_conn = NULL;
 
-static void camera_picture_recv_done(rx_buffer *buffer)
-{
-	ets_uart_printf("Done receiving picture contents: %d bytes\n", buffer->size);
-	ets_uart_printf("Sending data to phone.\n");
-
-	if (espconn_sent(reply_conn, (uint8 *)buffer->buf, buffer->size) != ESPCONN_OK)
-		ets_uart_printf("Failed to send reply.\n");
-
-	// check that last 5 bytes are the response data.
-	destroy_rx_buffer(buffer);
-}
-
 static void ICACHE_FLASH_ATTR print_rx_buffer(rx_buffer *buffer)
 {
 	int j = 0;
@@ -40,6 +30,19 @@ static void ICACHE_FLASH_ATTR print_rx_buffer(rx_buffer *buffer)
 		ets_uart_printf("%02x ", buffer->buf[j++]);
 
 	ets_uart_printf("\n");
+}
+
+static void camera_picture_recv_done(rx_buffer *buffer)
+{
+	uint16 len;
+	uint16 offset;
+	int rc;
+
+	ets_uart_printf("Done receiving picture contents: %d bytes\n", buffer->size);
+	ets_uart_printf("Sending data to phone.\n");
+
+	sta_server_send_large_buffer(reply_conn, buffer->buf, buffer->size);
+	os_free(buffer);
 }
 
 int ICACHE_FLASH_ATTR camera_reset()
@@ -135,14 +138,15 @@ int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
 	uint8 success[] = {'\x76', '\x00', '\x32', '\x00', '\x00'};
 	rx_buffer *read_content_buffer;
 
-	command[8] = (uint8)(init_addr & 0xff);
-	command[9] = (uint8)((init_addr >> 8) & 0xff);
-	command[12] = (uint8)(data_len & 0xff);
-	command[13] = (uint8)((data_len >> 8) & 0xff);
-	command[14] = (uint8)(spacing_int & 0xff);
-	command[15] = (uint8)((spacing_int >> 8) & 0xff);
+	command[8] = (uint8)((init_addr >> 8) & 0xff);
+	command[9] = (uint8)(init_addr & 0xff);
+	command[12] = (uint8)((data_len >> 8) & 0xff);
+	command[13] = (uint8)(data_len & 0xff);
+	command[14] = (uint8)((spacing_int >> 8) & 0xff);
+	command[15] = (uint8)(spacing_int & 0xff);
 
-	read_content_buffer = create_rx_buffer(READ_CONTENT_RESPONSE_SIZE, NULL);
+	reply_conn = rep_conn;
+	read_content_buffer = create_rx_buffer(2 * READ_CONTENT_RESPONSE_SIZE + data_len, camera_picture_recv_done);
 
 	if (read_content_buffer == NULL)
 		return -1;
@@ -151,32 +155,6 @@ int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
 	enable_interrupts(gpio_camera_tx, read_content_buffer);
 	bit_bang_send(command, sizeof command, baud_rate);
 
-	while (!read_buffer_full());	// wait until buffer is full
-
-	// this occurs during the spacing interval. Read the 5 reponse bytes.
-//	if (os_memcmp(read_content_buffer->buf, success, sizeof success) != 0) {
-//		destroy_rx_buffer(read_content_buffer);
-//		return 1;
-//	}
-
-	destroy_rx_buffer(read_content_buffer);
-	ets_uart_printf("set up reply for picture\n");
-	reply_conn = rep_conn;
-	read_content_buffer = create_rx_buffer(10, camera_picture_recv_done);
-
-	if (read_content_buffer == NULL)
-		return -1;
-
-	enable_interrupts(gpio_camera_tx, read_content_buffer);
-/*	if (os_memcmp(read_content_buffer->buf + READ_CONTENT_RESPONSE_SIZE - sizeof success,
-			success, sizeof success) != 0) {
-		destroy_rx_buffer(read_content_buffer);
-		ets_uart_printf("not reached end?\n");
-		return 2;
-	}
-*/
-//	os_memcpy(data, read_content_buffer->buf + 5, data_len);
-//	destroy_rx_buffer(read_content_buffer);
 	return 0;
 }
 
