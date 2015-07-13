@@ -20,6 +20,58 @@ static uint8 *large_buffer = NULL;
 static uint8 *cur_buffer = NULL;
 static uint16 large_buffer_len = 0;
 
+struct saved_conn {
+	enum espconn_type type;
+	int remote_port;
+	uint8 remote_ip[4];
+};
+
+static struct saved_conn who_requested;
+
+/* Check if the type (TCP/UDP), ports and ip addresses are the same. */
+static bool ICACHE_FLASH_ATTR same_conn(struct saved_conn *a, struct espconn *b)
+{
+	DEBUG("enter same_conn");
+
+	if (a->type != b->type) {
+		DEBUG("exit same_conn");
+		return false;
+	}
+
+	switch (a->type) {
+		case ESPCONN_TCP:
+			if (a->remote_port != b->proto.tcp->remote_port) {
+				DEBUG("exit same_conn");
+				return false;
+			}
+
+			if (os_memcmp(a->remote_ip, b->proto.tcp->remote_ip, 4) != 0) {
+				DEBUG("exit same_conn");
+				return false;
+			}
+
+			break;
+		case ESPCONN_UDP:
+			if (a->remote_port != b->proto.udp->remote_port) {
+				DEBUG("exit same_conn");
+				return false;
+			}
+
+			if (os_memcmp(a->remote_ip, b->proto.udp->remote_ip, 4) != 0) {
+				DEBUG("exit same_conn");
+				return false;
+			}
+
+			break;
+		default:
+			DEBUG("exit same_conn");
+			return false;
+	}
+
+	DEBUG("exit same_conn");
+	return true;
+}
+
 static void ICACHE_FLASH_ATTR sta_tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
 {
 	DEBUG("enter sta_tcpserver_recv_cb");
@@ -74,7 +126,8 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
 
-	if (large_buffer != NULL) {
+	/* We only send the data if this is the one who requested the picture. */
+	if (large_buffer != NULL && same_conn(&who_requested, (struct espconn *)arg)) {
 		ets_uart_printf("More data to send.\n");
 		large_buffer_len -= TCP_MAX_PACKET_SIZE;
 		cur_buffer += TCP_MAX_PACKET_SIZE;
@@ -89,6 +142,7 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 			large_buffer = NULL;
 			cur_buffer = NULL;
 			large_buffer_len = 0;
+			os_memset(&who_requested, 0, sizeof who_requested);
 		} else {
 			rc = espconn_sent((struct espconn *)arg, cur_buffer, TCP_MAX_PACKET_SIZE);
 
@@ -98,6 +152,7 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_sent_cb(void *arg)
 				large_buffer = NULL;
 				cur_buffer = NULL;
 				large_buffer_len = 0;
+				os_memset(&who_requested, 0, sizeof who_requested);
 			}
 		}
 	}
@@ -140,6 +195,17 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_reconnect_cb(void *arg, sint8 err)
 	DEBUG("enter sta_tcpserver_reconnect_cb");
 	ets_uart_printf("Reconnect: err = %d\n", err);
 	ets_uart_printf("\n");
+
+	/* Only free the large buffer if this is the one who requested it. */
+	if (large_buffer != NULL && same_conn(&who_requested, (struct espconn *)arg)) {
+		ets_uart_printf("Freeing large buffer\n");
+		os_free(large_buffer);
+		large_buffer = NULL;
+		cur_buffer = NULL;
+		large_buffer_len = 0;
+		os_memset(&who_requested, 0, sizeof who_requested);
+	}
+
 	DEBUG("exit sta_tcpserver_reconnect_cb");
 }
 
@@ -156,6 +222,17 @@ static void ICACHE_FLASH_ATTR sta_tcpserver_disconnect_cb(void *arg)
 	ets_uart_printf("%s:%d has disconnected!\n",
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("\n");
+
+	/* Only free the large buffer if this is the one who requested it. */
+	if (large_buffer != NULL && same_conn(&who_requested, (struct espconn *)arg)) {
+		ets_uart_printf("freeing large buffer.\n");
+		os_free(large_buffer);
+		large_buffer = NULL;
+		cur_buffer = NULL;
+		large_buffer_len = 0;
+		os_memset(&who_requested, 0, sizeof who_requested);
+	}
+
 	DEBUG("exit sta_tcpserver_disconnect_cb");
 }
 
@@ -298,6 +375,7 @@ void sta_server_send_large_buffer(struct espconn *conn, uint8 *buf, uint16 len)
 		large_buffer = NULL;
 		cur_buffer = NULL;
 		large_buffer_len = 0;
+		os_memset(&who_requested, 0, sizeof who_requested);
 	}
 
 	if (len <= TCP_MAX_PACKET_SIZE) {
@@ -308,9 +386,16 @@ void sta_server_send_large_buffer(struct espconn *conn, uint8 *buf, uint16 len)
 
 		os_free(buf);
 	} else {
+		/* If we got disconnected before starting the send, tcp might become NULL... */
+		if (conn->proto.tcp == NULL)
+			return;
+
 		large_buffer = buf;
 		cur_buffer = large_buffer;
 		large_buffer_len = len;
+		who_requested.type = conn->type;
+		who_requested.remote_port = conn->proto.tcp->remote_port;
+		os_memcpy(who_requested.remote_ip, conn->proto.tcp->remote_ip, 4);
 
 		rc = espconn_sent(conn, buf, TCP_MAX_PACKET_SIZE);
 
@@ -320,6 +405,7 @@ void sta_server_send_large_buffer(struct espconn *conn, uint8 *buf, uint16 len)
 			large_buffer = NULL;
 			cur_buffer = NULL;
 			large_buffer_len = 0;
+			os_memset(&who_requested, 0, sizeof who_requested);
 		}
 	}
 }
