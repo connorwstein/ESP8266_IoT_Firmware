@@ -11,9 +11,6 @@
 #include "wifi.h"
 #include "debug.h"
 
-bool HAS_BEEN_CONNECTED_AS_STATION;
-bool HAS_RECEIVED_CONNECT_INSTRUCTION;
-
 void ICACHE_FLASH_ATTR init_done()
 {
 	DEBUG("enter init_done");
@@ -59,8 +56,6 @@ void ICACHE_FLASH_ATTR init_done()
 	if (ap_server_init() != 0)
 		ets_uart_printf("Failed to initialize ap server.\n");
 
-	//os_delay_us(3000000);
-	//camera_take_picture();
 	DEBUG("exit init_done");
 }
 
@@ -68,7 +63,7 @@ void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg)
 {
 	DEBUG("enter wifi_timer_cb");
 
-	if (!HAS_BEEN_CONNECTED_AS_STATION) {
+	if (!has_been_connected_as_station()) {
 		ets_uart_printf("wifi timer timeout\n");
 		go_back_to_ap(NULL);
 	}
@@ -76,28 +71,19 @@ void ICACHE_FLASH_ATTR wifi_timer_cb(void *timer_arg)
 	DEBUG("exit wifi_timer_cb");
 }
 
-void ICACHE_FLASH_ATTR take_pic(void* timer_arg){
-	//ets_uart_printf("CALLED TAKE PIC\n");
-	camera_take_picture();
-}
-
 void ICACHE_FLASH_ATTR user_init()
 {
 	DEBUG("enter user_init");
 	static ETSTimer wifi_connect_timer;
-//	static ETSTimer takepictimer;
+	struct DeviceConfig conf;
 	
 //	system_restore();
 	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
 	ets_uart_printf("\n\n\n");
-	
-	HAS_RECEIVED_CONNECT_INSTRUCTION = false;
-	HAS_BEEN_CONNECTED_AS_STATION = false;
+	ets_uart_printf("Free heap: %u\n", system_get_free_heap_size());
 
 	if (DeviceConfig_already_exists()) {
-		struct DeviceConfig conf;
-
 		if (DeviceConfig_read_config(&conf) != 0) {
 			ets_uart_printf("Failed to read device config.\n");
 		} else {
@@ -119,8 +105,6 @@ void ICACHE_FLASH_ATTR user_init()
 	 	ets_uart_printf("Unable to set auto connect.\n");
 	
 	system_init_done_cb(&init_done);
-//	os_timer_setfn(&takepictimer, take_pic, NULL);
-//	os_timer_arm(&takepictimer, 1000, true); 
 	os_timer_setfn(&wifi_connect_timer, wifi_timer_cb, NULL);
 	os_timer_arm(&wifi_connect_timer, AUTO_CONNECT_TIMEOUT, false); 
 	DEBUG("exit user_init");

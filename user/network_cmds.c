@@ -14,9 +14,6 @@
 
 extern void ICACHE_FLASH_ATTR init_done();
 
-extern bool HAS_BEEN_CONNECTED_AS_STATION;
-extern bool HAS_RECEIVED_CONNECT_INSTRUCTION;
-
 extern struct espconn *ap_server_conn;
 extern struct espconn *sta_server_conn;
 
@@ -39,8 +36,8 @@ void ICACHE_FLASH_ATTR go_back_to_ap(struct espconn *conn)
 
 	generate_default_ssid(ssid, sizeof ssid);
 
-	HAS_BEEN_CONNECTED_AS_STATION = false;
-	HAS_RECEIVED_CONNECT_INSTRUCTION = false;
+	set_connected_as_station(false);
+	set_received_connect_instruction(false);
 
 	if (!wifi_station_disconnect())
 		ets_uart_printf("Failed to disconnect as station.\n");
@@ -74,7 +71,7 @@ void ICACHE_FLASH_ATTR connect_to_network(const char *ssid, const char *password
 	}
 
 	ets_uart_printf("Disconnected\n");
-	HAS_RECEIVED_CONNECT_INSTRUCTION = true;
+	set_received_connect_instruction(true);
 	start_station(ssid, password);
 	ets_uart_printf("\n");
 	DEBUG("exit connect_to_network");

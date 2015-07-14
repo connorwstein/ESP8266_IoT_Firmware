@@ -17,7 +17,8 @@ rx_buffer *buffer=NULL;
 void ICACHE_FLASH_ATTR bit_bang_send(const char *data, uint16 len, uint32 baud_rate_set)
 {
 	gpio_pin_intr_state_set(5,GPIO_PIN_INTR_DISABLE); 
-
+//	ets_uart_printf("Sending %02X %02X %02X %02X\n",data[0], data[1],data[2],data[3]);
+//	os_delay_us(1000);
 	baud_rate=baud_rate_set;
 	char byte;
 	uint16 i, j;
@@ -52,7 +53,7 @@ void bit_bang_read_byte(uint32 intr_mask, void* arg){
 	int clock=NOW();
 	int i=0;
 	uint8 byte=0;
-	//ets_uart_printf("INREAD\n");
+//	ets_uart_printf("INREAD\n");
 	gpio_intr_ack(intr_mask);
 	uint32 gpio_status=GPIO_REG_READ(GPIO_STATUS_ADDRESS);	
 	if(gpio_status==0) return; //Not actual data when gpio_status is 0

@@ -7,6 +7,8 @@
 #include "debug.h"
 #include "mem.h"
 
+#include "device_config.h"
+
 #define INITIAL_DELAY 2000000
 #define INITIATE_PROTOCOL_DELAY 20000
 #define MAX_READ_TIME 4000
@@ -175,4 +177,14 @@ void ICACHE_FLASH_ATTR Temperature_get_temperature(struct espconn *conn)
 	else{
 		ets_uart_printf("Error getting temperature from the device\n");
 	}
+}
+
+int ICACHE_FLASH_ATTR Temperature_init(struct DeviceConfig *config)
+{
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR Temperature_set_default_data(struct DeviceConfig *config)
+{
+	return 0;
 }

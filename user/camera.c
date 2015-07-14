@@ -7,6 +7,7 @@
 #include "ip_addr.h"
 #include "espconn.h"
 
+#include "device_config.h"
 #include "camera.h"
 #include "software_uart.h"
 #include "sta_server.h"
@@ -19,11 +20,19 @@
 
 static rx_buffer *previous_rxbuffer = NULL;
 
-static uint32 baud_rate = 38400;
+static uint32 baud_rate;
 static uint8 gpio_camera_rx;
 static uint8 gpio_camera_tx;
 
 struct espconn *reply_conn = NULL;
+
+struct camera_data {
+	uint32 baud;
+	uint8 gpio_rx;
+	uint8 gpio_tx;
+};
+
+static const struct camera_data DEFAULT_CAMERA_DATA = {.baud = 38400, .gpio_rx = 5, .gpio_tx = 4};
 
 static void ICACHE_FLASH_ATTR print_rx_buffer(rx_buffer *buffer)
 {
@@ -50,7 +59,7 @@ static void camera_picture_recv_done(rx_buffer *buffer)
 	previous_rxbuffer = NULL;
 }
 
-int ICACHE_FLASH_ATTR camera_reset()
+int ICACHE_FLASH_ATTR Camera_reset()
 {
 	uint8 command[] = {'\x56', '\x00', '\x26', '\x00'};
 	uint8 success[] = {'\x76', '\x00', '\x26', '\x00'};
@@ -59,8 +68,10 @@ int ICACHE_FLASH_ATTR camera_reset()
 	ets_uart_printf("Resetting camera...\n");
 	reset_buffer = create_rx_buffer(RESET_RESPONSE_SIZE, NULL);
 
-	if (reset_buffer == NULL)
+	if (reset_buffer == NULL) {
+		ets_uart_printf("reset_buffer was NULL.\n");
 		return -1;
+	}
 
 	enable_interrupts(gpio_camera_tx, reset_buffer);
 	bit_bang_send(command, sizeof command, baud_rate);
@@ -70,6 +81,7 @@ int ICACHE_FLASH_ATTR camera_reset()
 	print_rx_buffer(reset_buffer);
  
 	if (os_memcmp(reset_buffer->buf, success, sizeof success) != 0) {
+		ets_uart_printf("in memcmp error\n");
 		destroy_rx_buffer(reset_buffer);
 		return 1;
 	}
@@ -78,7 +90,7 @@ int ICACHE_FLASH_ATTR camera_reset()
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR camera_take_picture()
+int ICACHE_FLASH_ATTR Camera_take_picture()
 {
 	uint8 command[] = {'\x56', '\x00', '\x36', '\x01', '\x00'};
 	uint8 success[] = {'\x76', '\x00', '\x36', '\x00', '\x00'};
@@ -106,7 +118,7 @@ int ICACHE_FLASH_ATTR camera_take_picture()
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR camera_read_size(uint16 *size_p)
+int ICACHE_FLASH_ATTR Camera_read_size(uint16 *size_p)
 {
 	uint8 command[] = {'\x56', '\x00', '\x34', '\x01', '\x00'};
 	uint8 success[] = {'\x76', '\x00', '\x34', '\x00', '\x04', '\x00', '\x00'};
@@ -135,7 +147,7 @@ int ICACHE_FLASH_ATTR camera_read_size(uint16 *size_p)
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
+int ICACHE_FLASH_ATTR Camera_read_content(uint16 init_addr, uint16 data_len,
 						uint16 spacing_int, struct espconn *rep_conn)
 {
 	uint8 command[] = {'\x56', '\x00', '\x32', '\x0c', '\x00', '\x0a', '\x00', '\x00', \
@@ -169,7 +181,7 @@ int ICACHE_FLASH_ATTR camera_read_content(uint16 init_addr, uint16 data_len,
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR camera_stop_pictures()
+int ICACHE_FLASH_ATTR Camera_stop_pictures()
 {
 	uint8 command[] = {'\x56', '\x00', '\x36', '\x01', '\x03'};
 	uint8 success[] = {'\x76', '\x00', '\x36', '\x00', '\x00'};
@@ -197,7 +209,7 @@ int ICACHE_FLASH_ATTR camera_stop_pictures()
 	return 0;
 }
 
-void ICACHE_FLASH_ATTR camera_compression_ratio(uint8 ratio)
+void ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio)
 {
 	uint8 command[] = {'\x56', '\x00', '\x31', '\x05', '\x01', '\x01', '\x12', '\x04', \
 			   '\x00'};
@@ -206,24 +218,24 @@ void ICACHE_FLASH_ATTR camera_compression_ratio(uint8 ratio)
 	bit_bang_send(command, sizeof command, baud_rate);
 }
 
-void ICACHE_FLASH_ATTR camera_set_image_size()
+void ICACHE_FLASH_ATTR Camera_set_image_size()
 {
 	// wat
 }
 
-void ICACHE_FLASH_ATTR camera_power_saving_on()
+void ICACHE_FLASH_ATTR Camera_power_saving_on()
 {
 	uint8 command[] = {'\x56', '\x00', '\x3e', '\x03', '\x00', '\x01', '\x01'};
 	bit_bang_send(command, sizeof command, baud_rate);
 }
 
-void ICACHE_FLASH_ATTR camera_power_saving_off()
+void ICACHE_FLASH_ATTR Camera_power_saving_off()
 {
 	uint8 command[] = {'\x56', '\x00', '\x3e', '\x03', '\x00', '\x01', '\x00'};
 	bit_bang_send(command, sizeof command, baud_rate);
 }
 
-void ICACHE_FLASH_ATTR camera_set_baud_rate(uint32 baud)
+void ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
 {
 	uint8 command[] = {'\x56', '\x00', '\x24', '\x03', '\x01', '\x00', '\x00'};
 
@@ -256,12 +268,27 @@ void ICACHE_FLASH_ATTR camera_set_baud_rate(uint32 baud)
 	baud_rate = baud;
 }
 
-void ICACHE_FLASH_ATTR camera_init(uint32 baud_rate_set, uint8 gpio_camera_rx_set, uint8 gpio_camera_tx_set)
+int ICACHE_FLASH_ATTR Camera_init(struct DeviceConfig *conf)
 {
+	struct camera_data *dat;
+
+	if (conf->data_len != sizeof (struct camera_data)) {
+		ets_uart_printf("Wrong size for camera data: %d\n", conf->data_len);
+		return -1;
+	}
+
+	dat = (struct camera_data *)(conf->data);
+
 	gpio_init();
-	baud_rate=baud_rate_set;
-	gpio_camera_rx=gpio_camera_rx_set;
-	gpio_camera_tx=gpio_camera_tx_set;
+	baud_rate = dat->baud;
+	gpio_camera_rx = dat->gpio_rx;
+	gpio_camera_tx = dat->gpio_tx;
+
+	/* Need to fix the PIN FUNC SELECT constants before this is supported... */
+	if (gpio_camera_rx != 5 || gpio_camera_tx != 4) {
+		ets_uart_printf("Wrong values for gpio_camera_rx, gpio_camera_tx\n");
+		return -1;
+	}
 
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
@@ -269,6 +296,22 @@ void ICACHE_FLASH_ATTR camera_init(uint32 baud_rate_set, uint8 gpio_camera_rx_se
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO5_U);
 
 	GPIO_DIS_OUTPUT(gpio_camera_rx);
-//	ets_wdt_disable();
-	ets_uart_printf("Camera initialized. Rx: %d Tx: %d\n",gpio_camera_rx,gpio_camera_tx);
+	ets_uart_printf("Camera initialized. Rx: %d Tx: %d Baud: %d\n", gpio_camera_rx, gpio_camera_tx, baud_rate);
+
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR Camera_set_default_data(struct DeviceConfig *config)
+{
+	config->data = (void *)os_zalloc(sizeof (struct camera_data));
+
+	if (config->data == NULL) {
+		ets_uart_printf("Failed to allocate memory for config->data.\n");
+		return -1;
+	}
+
+	config->data_len = sizeof (struct camera_data);
+	os_memcpy(config->data, &DEFAULT_CAMERA_DATA, sizeof (struct camera_data));
+
+	return 0;
 }

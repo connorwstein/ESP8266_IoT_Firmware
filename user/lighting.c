@@ -3,6 +3,7 @@
 #include "ip_addr.h"
 #include "espconn.h"
 
+#include "device_config.h"
 #include "lighting.h"
 #include "debug.h"
 
@@ -33,4 +34,14 @@ void ICACHE_FLASH_ATTR Lighting_get_light(struct espconn *conn)
 
 	ets_uart_printf("Replied with: %s\n", buff);
 	DEBUG("exit Lighting_get_light");
+}
+
+int ICACHE_FLASH_ATTR Lighting_init(struct DeviceConfig *config)
+{
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR Lighting_set_default_data(struct DeviceConfig *config)
+{
+	return 0;
 }

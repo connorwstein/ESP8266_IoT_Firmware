@@ -102,30 +102,42 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 			break;
 		case CAMERA:
 			if (os_strcmp(cmd, "Camera Take Picture") == 0) {
-				if (camera_take_picture() == 0) {
+				if (Camera_take_picture() == 0) {
 					send_reply("Picture Taken", (struct espconn *)arg);
 				} else {
 					ets_uart_printf("Failed to take picture.\n");
 					send_reply("Picture Take Fail", (struct espconn *)arg);
 				}
+			} else if (os_strcmp(cmd, "Camera Get Size") == 0) {
+				uint16 size;
+				char reply[10];
+
+				if (Camera_read_size(&size) == 0) {
+					ets_uart_printf("Got picture size: %d bytes\n", size);
+					os_sprintf(reply, "%hu", size);
+					send_reply(reply, (struct espconn *)arg);
+				} else {
+					ets_uart_printf("Failed to read picture size.\n");
+					send_reply("Get Size Fail", (struct espconn *)arg);
+				}
 			} else if (os_strcmp(cmd, "Camera Get Picture") == 0) {
 				uint16 size;
 
-				if (camera_read_size(&size) == 0) {
+				if (Camera_read_size(&size) == 0) {
 					ets_uart_printf("Got picture size: %d bytes\n", size);
 				} else {
 					ets_uart_printf("Failed to read picture size.\n");
 					send_reply("Picture Got Fail", (struct espconn *)arg);
 				}
 
-				if (camera_read_content(0x0000, size, 0x000a, (struct espconn *)arg) == 0) {
+				if (Camera_read_content(0x0000, size, 0x000a, (struct espconn *)arg) == 0) {
 //					send_reply("Picture Got", (struct espconn *)arg);
 				} else {
 					ets_uart_printf("Failed to read picture contents.\n");
 					send_reply("Picture Got Fail", (struct espconn *)arg);
 				}
 			} else if (os_strcmp(cmd, "Camera Stop Picture") == 0) {
-				if (camera_stop_pictures() != 0)
+				if (Camera_stop_pictures() != 0)
 					ets_uart_printf("Failed to stop taking pictures.\n");
 			} else if (os_strcmp(cmd, "Hello Camera Devices?") == 0) {
 				udp_send_ipmac((struct espconn *)arg);

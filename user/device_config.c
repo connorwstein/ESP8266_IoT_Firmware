@@ -9,6 +9,8 @@
 #include "debug.h"
 
 #include "camera.h"
+#include "lighting.h"
+#include "temperature.h"
 
 void ICACHE_FLASH_ATTR DeviceConfig_delete(struct DeviceConfig *conf)
 {
@@ -153,6 +155,28 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_name(const char *name)
 	return 0;
 }
 
+static int device_set_default_data(struct DeviceConfig *config, enum DeviceType_t type)
+{
+	switch (type) {
+		case TEMPERATURE:
+				return Temperature_set_default_data(config);
+
+		case THERMOSTAT:
+				break;
+
+		case LIGHTING:
+				return Lighting_set_default_data(config);
+
+		case CAMERA:
+				return Camera_set_default_data(config);
+
+		default:
+			break;
+	}
+
+	return 0;
+}
+
 int ICACHE_FLASH_ATTR DeviceConfig_set_type(enum DeviceType_t type)
 {
 	DEBUG("enter DeviceConfig_set_type");
@@ -164,7 +188,25 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_type(enum DeviceType_t type)
 		if (DeviceConfig_read_config(&conf) != 0)
 			ets_uart_printf("Failed to read device config. Resetting config.\n");
 	}
-	
+
+	if (type == conf.type) {
+		ets_uart_printf("Device already has this type.\n");
+		return 0;
+	}
+
+	/* Free any previous data info. */
+	if (conf.data)
+		os_free(conf.data);
+
+	conf.data = NULL;
+	conf.data_len = 0;
+
+	if (device_set_default_data(&conf, type) != 0) {
+		ets_uart_printf("Failed to set default data for type %d.\n", type);
+		DEBUG("exit DeviceConfig_set_type");
+		return -1;
+	}
+
 	conf.type = type;
 	ets_uart_printf("Will set my device type to %d!\n", conf.type);
 
@@ -174,7 +216,15 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_type(enum DeviceType_t type)
 		return -1;
 	}
 
-	os_free(conf.data);
+	/* Free the device config struct data. */
+	if (conf.data)
+		os_free(conf.data);
+
+	if (!DeviceInit()) {
+		ets_uart_printf("Failed to initialize as new device type.\n");
+		return -1;
+	}
+
 	ets_uart_printf("Successfully saved new config!\n");
 	ets_uart_printf("\n");
 	DEBUG("exit DeviceConfig_set_type");
@@ -222,10 +272,34 @@ bool ICACHE_FLASH_ATTR DeviceInit()
 		return false;
 
 	switch (conf.type) {
-		case CAMERA:
-				camera_init(38400, 5, 4);
+		case TEMPERATURE:
+				if (Temperature_init(&conf) != 0) {
+					ets_uart_printf("Failed to init temperature.\n");
+					return false;
+				}
 
-				if (camera_reset() != 0) {
+				break;
+
+		case THERMOSTAT:
+				break;
+
+		case LIGHTING:
+				if (Lighting_init(&conf) != 0) {
+					ets_uart_printf("Failed to init lighting.\n");
+					return false;
+				}
+
+				break;
+
+		case CAMERA:
+				if (Camera_init(&conf) != 0) {
+					ets_uart_printf("Failed to init camera.\n");
+					return false;
+				}
+
+				/* Strange, if we write if (!Camera_reset()) {, the device restarts
+				   due to lack of response from camera... Could be some crazy timing issue... */
+				if (Camera_reset() != 0) {
 					ets_uart_printf("Failed to reset camera.\n");
 					return false;
 				}

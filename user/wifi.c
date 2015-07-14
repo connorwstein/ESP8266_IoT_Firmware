@@ -9,8 +9,28 @@
 
 #include "debug.h"
 
-extern bool HAS_BEEN_CONNECTED_AS_STATION;
-extern bool HAS_RECEIVED_CONNECT_INSTRUCTION;
+static bool HAS_BEEN_CONNECTED_AS_STATION = false;
+static bool HAS_RECEIVED_CONNECT_INSTRUCTION = false;
+
+bool ICACHE_FLASH_ATTR has_been_connected_as_station()
+{
+	return HAS_BEEN_CONNECTED_AS_STATION;
+}
+
+bool ICACHE_FLASH_ATTR has_received_connect_instruction()
+{
+	return HAS_RECEIVED_CONNECT_INSTRUCTION;
+}
+
+void ICACHE_FLASH_ATTR set_connected_as_station(bool val)
+{
+	HAS_BEEN_CONNECTED_AS_STATION = val;
+}
+
+void ICACHE_FLASH_ATTR set_received_connect_instruction(bool val)
+{
+	HAS_RECEIVED_CONNECT_INSTRUCTION = val;
+}
 
 int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 {
@@ -153,7 +173,7 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 	
 				wifi_set_event_handler_cb(empty_wifi_handler);
 				DEBUG("exit sta_wifi_handler (restart)");
-				system_restart();
+				system_restart();	// why not use go_back_to_ap() ?
 			}
 
 			break;
