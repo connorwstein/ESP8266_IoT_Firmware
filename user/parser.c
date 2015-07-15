@@ -114,7 +114,7 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 
 				if (Camera_read_size(&size) == 0) {
 					ets_uart_printf("Got picture size: %d bytes\n", size);
-					os_sprintf(reply, "%hu", size);
+					os_sprintf(reply, "%hu", size + 10);	/* 10 is the response header length */
 					send_reply(reply, (struct espconn *)arg);
 				} else {
 					ets_uart_printf("Failed to read picture size.\n");

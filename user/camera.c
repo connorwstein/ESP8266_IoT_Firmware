@@ -18,7 +18,7 @@
 #define READ_CONTENT_RESPONSE_SIZE	5
 #define STOP_PICTURES_RESPONSE_SIZE	5
 
-static rx_buffer *previous_rxbuffer = NULL;
+static struct rx_buffer *previous_rxbuffer = NULL;
 
 static uint32 baud_rate;
 static uint8 gpio_camera_rx;
@@ -34,7 +34,7 @@ struct camera_data {
 
 static const struct camera_data DEFAULT_CAMERA_DATA = {.baud = 38400, .gpio_rx = 5, .gpio_tx = 4};
 
-static void ICACHE_FLASH_ATTR print_rx_buffer(rx_buffer *buffer)
+static void ICACHE_FLASH_ATTR print_rx_buffer(struct rx_buffer *buffer)
 {
 	int j = 0;
 	ets_uart_printf("Response: ");
@@ -45,7 +45,7 @@ static void ICACHE_FLASH_ATTR print_rx_buffer(rx_buffer *buffer)
 	ets_uart_printf("\n");
 }
 
-static void camera_picture_recv_done(rx_buffer *buffer)
+static void camera_picture_recv_done(struct rx_buffer *buffer)
 {
 	uint16 len;
 	uint16 offset;
@@ -63,9 +63,18 @@ int ICACHE_FLASH_ATTR Camera_reset()
 {
 	uint8 command[] = {'\x56', '\x00', '\x26', '\x00'};
 	uint8 success[] = {'\x76', '\x00', '\x26', '\x00'};
-	rx_buffer *reset_buffer;
+	struct rx_buffer *reset_buffer;
 
 	ets_uart_printf("Resetting camera...\n");
+	
+	/* Add this delay to make sure the camera will be ready...
+	   We had strange issues where the camera would not respond
+	   depending on whether or not some line was added/commented out
+	   in a function that never gets called to this point. We think
+	   the line may have somehow caused the code to run faster, thus causing
+	   bit_bang_send to send the reset command too fast... */
+	os_delay_us(10);
+
 	reset_buffer = create_rx_buffer(RESET_RESPONSE_SIZE, NULL);
 
 	if (reset_buffer == NULL) {
@@ -73,8 +82,9 @@ int ICACHE_FLASH_ATTR Camera_reset()
 		return -1;
 	}
 
-	enable_interrupts(gpio_camera_tx, reset_buffer);
-	bit_bang_send(command, sizeof command, baud_rate);
+	set_rx_buffer(reset_buffer);
+	enable_interrupts();
+	bit_bang_send(command, sizeof command);
 
 	while (!read_buffer_full()); //wait until buffer is full
 	
@@ -94,7 +104,7 @@ int ICACHE_FLASH_ATTR Camera_take_picture()
 {
 	uint8 command[] = {'\x56', '\x00', '\x36', '\x01', '\x00'};
 	uint8 success[] = {'\x76', '\x00', '\x36', '\x00', '\x00'};
-	rx_buffer *take_picture_buffer;
+	struct rx_buffer *take_picture_buffer;
 
 	take_picture_buffer = create_rx_buffer(TAKE_PICTURE_RESPONSE_SIZE, NULL);
 
@@ -102,8 +112,9 @@ int ICACHE_FLASH_ATTR Camera_take_picture()
 		return -1;
 
 	ets_uart_printf("Taking picture...\n");
-	enable_interrupts(gpio_camera_tx, take_picture_buffer); // TODO: Fix the gpio pins!
-	bit_bang_send(command, sizeof command, baud_rate);
+	set_rx_buffer(take_picture_buffer);
+	enable_interrupts();
+	bit_bang_send(command, sizeof command);
 
 	while (!read_buffer_full()); //wait until buffer is full
 
@@ -122,7 +133,7 @@ int ICACHE_FLASH_ATTR Camera_read_size(uint16 *size_p)
 {
 	uint8 command[] = {'\x56', '\x00', '\x34', '\x01', '\x00'};
 	uint8 success[] = {'\x76', '\x00', '\x34', '\x00', '\x04', '\x00', '\x00'};
-	rx_buffer *read_size_buffer;
+	struct rx_buffer *read_size_buffer;
 
 	read_size_buffer = create_rx_buffer(READ_SIZE_RESPONSE_SIZE, NULL);
 
@@ -130,8 +141,9 @@ int ICACHE_FLASH_ATTR Camera_read_size(uint16 *size_p)
 		return -1;
 
 	ets_uart_printf("Reading picture size...\n");
-	enable_interrupts(gpio_camera_tx, read_size_buffer);
-	bit_bang_send(command, sizeof command, baud_rate);
+	set_rx_buffer(read_size_buffer);
+	enable_interrupts();
+	bit_bang_send(command, sizeof command);
 
 	while (!read_buffer_full());	// wait until buffer is full
 
@@ -153,7 +165,7 @@ int ICACHE_FLASH_ATTR Camera_read_content(uint16 init_addr, uint16 data_len,
 	uint8 command[] = {'\x56', '\x00', '\x32', '\x0c', '\x00', '\x0a', '\x00', '\x00', \
 			   '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00'};
 	uint8 success[] = {'\x76', '\x00', '\x32', '\x00', '\x00'};
-	rx_buffer *read_content_buffer;
+	struct rx_buffer *read_content_buffer;
 
 	/* In case the previous request was never finished, need to free it here */
 	if (previous_rxbuffer != NULL)
@@ -173,8 +185,9 @@ int ICACHE_FLASH_ATTR Camera_read_content(uint16 init_addr, uint16 data_len,
 		return -1;
 
 	ets_uart_printf("Reading picture contents...\n");
-	enable_interrupts(gpio_camera_tx, read_content_buffer);
-	bit_bang_send(command, sizeof command, baud_rate);
+	set_rx_buffer(read_content_buffer);
+	enable_interrupts();
+	bit_bang_send(command, sizeof command);
 	previous_rxbuffer = read_content_buffer;
 
 	ets_uart_printf("Free heap size = %u\n", system_get_free_heap_size());
@@ -185,7 +198,7 @@ int ICACHE_FLASH_ATTR Camera_stop_pictures()
 {
 	uint8 command[] = {'\x56', '\x00', '\x36', '\x01', '\x03'};
 	uint8 success[] = {'\x76', '\x00', '\x36', '\x00', '\x00'};
-	rx_buffer *stop_pictures_buffer;
+	struct rx_buffer *stop_pictures_buffer;
 
 	stop_pictures_buffer = create_rx_buffer(STOP_PICTURES_RESPONSE_SIZE, NULL);
 
@@ -193,8 +206,9 @@ int ICACHE_FLASH_ATTR Camera_stop_pictures()
 		return -1;
 
 	ets_uart_printf("Stop taking pictures...\n");
-	enable_interrupts(gpio_camera_tx, stop_pictures_buffer); // TODO: Fix the gpio pins!
-	bit_bang_send(command, sizeof command, baud_rate);
+	set_rx_buffer(stop_pictures_buffer);
+	enable_interrupts();
+	bit_bang_send(command, sizeof command);
 
 	while (!read_buffer_full()); //wait until buffer is full
 
@@ -215,7 +229,7 @@ void ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio)
 			   '\x00'};
 
 	command[8] = ratio;
-	bit_bang_send(command, sizeof command, baud_rate);
+	bit_bang_send(command, sizeof command);
 }
 
 void ICACHE_FLASH_ATTR Camera_set_image_size()
@@ -226,13 +240,13 @@ void ICACHE_FLASH_ATTR Camera_set_image_size()
 void ICACHE_FLASH_ATTR Camera_power_saving_on()
 {
 	uint8 command[] = {'\x56', '\x00', '\x3e', '\x03', '\x00', '\x01', '\x01'};
-	bit_bang_send(command, sizeof command, baud_rate);
+	bit_bang_send(command, sizeof command);
 }
 
 void ICACHE_FLASH_ATTR Camera_power_saving_off()
 {
 	uint8 command[] = {'\x56', '\x00', '\x3e', '\x03', '\x00', '\x01', '\x00'};
-	bit_bang_send(command, sizeof command, baud_rate);
+	bit_bang_send(command, sizeof command);
 }
 
 void ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
@@ -264,7 +278,8 @@ void ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
 				return;
 	}
 
-	bit_bang_send(command, sizeof command, baud_rate);
+	// software_uart_config(baud, ...)
+	bit_bang_send(command, sizeof command);
 	baud_rate = baud;
 }
 
@@ -286,7 +301,7 @@ int ICACHE_FLASH_ATTR Camera_init(struct DeviceConfig *conf)
 
 	/* Need to fix the PIN FUNC SELECT constants before this is supported... */
 	if (gpio_camera_rx != 5 || gpio_camera_tx != 4) {
-		ets_uart_printf("Wrong values for gpio_camera_rx, gpio_camera_tx\n");
+		ets_uart_printf("Unsupported values for gpio_camera_rx, gpio_camera_tx\n");
 		return -1;
 	}
 
@@ -296,8 +311,10 @@ int ICACHE_FLASH_ATTR Camera_init(struct DeviceConfig *conf)
 	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO5_U);
 
 	GPIO_DIS_OUTPUT(gpio_camera_rx);
-	ets_uart_printf("Camera initialized. Rx: %d Tx: %d Baud: %d\n", gpio_camera_rx, gpio_camera_tx, baud_rate);
 
+	software_uart_config(baud_rate, gpio_camera_rx, gpio_camera_tx);
+
+	ets_uart_printf("Camera initialized. Rx: %d Tx: %d Baud: %d\n", gpio_camera_rx, gpio_camera_tx, baud_rate);
 	return 0;
 }
 

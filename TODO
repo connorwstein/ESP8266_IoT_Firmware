@@ -1,0 +1,7 @@
+-- Add timeouts in the software uart read while loops.
+
+-- Fix the ap_server and sta_server to handle multiple connections.
+
+-- Check for hidden memory leak bugs or crashes.
+
+-- Implement more of the functionality to the camera.
