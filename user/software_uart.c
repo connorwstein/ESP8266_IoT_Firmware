@@ -7,7 +7,12 @@
 
 #include "software_uart.h"
 
+/* Converts between microseconds and timer clock ticks.
+   The NOW() macro returns time in terms of timer clock ticks.
+   The timer clock has a frequency of TIMER_CLK_FREQ = 312500 Hz
+   (see eagle_soc.h or ets_sys.h). */
 #define TOTICKS(x) (((x) * 5) >> 4)
+
 #define BITS_IN_BYTE 8
 
 uint32 baud_rate = 38400; //default baudrate
