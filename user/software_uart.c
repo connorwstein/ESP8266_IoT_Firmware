@@ -184,7 +184,7 @@ struct rx_buffer *ICACHE_FLASH_ATTR create_rx_buffer(uint16 response_size, rx_bu
 
 void ICACHE_FLASH_ATTR destroy_rx_buffer(struct rx_buffer *buffer_to_kill)
 {
-	flush_read_buffer(); 
+	flush_read_buffer();
 
 	if (buffer_to_kill == NULL)
 		return;
