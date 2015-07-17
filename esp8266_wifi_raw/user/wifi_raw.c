@@ -58,6 +58,7 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 	static int level = 0;
 	static void *upper_buf;
 	static uint16 upper_len;
+	static void *esf;
 
 	/* If this was called not by us, but by other libraries,
 	    just behave exactly like ppTxPkt. */
@@ -92,6 +93,9 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 		upper_len = len;
 
 		level = 1;
+		esf = *(void **)0x3ffee7f0;
+		ets_uart_printf("test1: %p\n", esf);
+//		ets_uart_printf("esf_buf: %p\n", esf_buf_alloc(pb, 1, 0));
 
 		/* Go down one level into ieee80211_output_pbuf. 
 		ieee80211_output_pbuf calls aaTxPkt because the libnet80211_2 has all references to
@@ -99,6 +103,8 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 		if (ieee80211_output_pbuf(ifp, pb))
 			ets_uart_printf("Failed.\n");
 
+		*(void **)0x3ffee7f0 = esf;
+		ets_uart_printf("test2: %p\n", *(void **)0x3ffee7f0);
 		level = 0;
 		pbuf_free(pb);
 
@@ -108,7 +114,8 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 				   format expected by ppTxPkt. Just modify
 				   the packet data in the appropriate memory addresses. */
 
-		memcpy(((uint8 **)buf)[4], upper_buf, upper_len);
+		ets_uart_printf("Got in level 1\n");
+		memcpy(((uint8 **)buf)[4], (uint8 *)upper_buf, upper_len);
 		ppTxPkt(buf);
 	}
 }

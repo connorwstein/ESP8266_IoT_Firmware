@@ -14,6 +14,21 @@
 #define SOFTAP_IF	0x01
 #define SOFTAP_MODE	0x02
 
+struct beacon_frame {
+	uint16 fc;
+	uint16 duration_id;
+	uint8 addr1[6];
+	uint8 addr2[6];
+	uint8 addr3[6];
+	uint16 sequence_control;
+	uint8 timestamp[8];
+	uint16 beacon_int;
+	uint16 cap_info;
+	uint8 element_id;
+	uint8 length;
+	uint8 ssid[32];
+};
+
 ETSTimer timer;
 
 /* function that sends the raw packet.
@@ -35,6 +50,29 @@ void ICACHE_FLASH_ATTR send_packet(void *arg)
 	os_sprintf(packet + 4, "%s%s%s%s%s", "HELLO WORLD!", "HELLO WORLD!", "HELLO WORLD!", "HELLO WORLD!", "HaLLO w0RLD!");
 
 	wifi_send_raw_packet(packet, sizeof packet);
+}
+
+void ICACHE_FLASH_ATTR send_beacon(void *arg)
+{
+	struct beacon_frame frame;
+	//uint8 packet[42];
+
+	frame.fc = 0x0080;
+	frame.duration_id = 0x0000;
+	os_memcpy(frame.addr1, "\xff\xff\xff\xff\xff\xff", 6);
+	wifi_get_macaddr(SOFTAP_IF, frame.addr2);
+	wifi_get_macaddr(SOFTAP_IF, frame.addr3);
+	frame.sequence_control = 0x0000;
+	os_memset(frame.timestamp, 0, 8);
+	*((uint32 *)(frame.timestamp)) = (NOW() << 4) / 5;
+	frame.beacon_int = 976;
+	frame.cap_info = 0x0001;
+	frame.element_id = 0;
+	frame.length = 4;
+	os_memset(frame.ssid, 0, 32);
+	os_memcpy(frame.ssid, "ABCD", 4);
+
+	wifi_send_raw_packet(&frame, 42);
 }
 
 void ICACHE_FLASH_ATTR my_recv_cb(struct RxPacket *pkt)
@@ -110,15 +148,15 @@ void ICACHE_FLASH_ATTR init_done()
 	// Select a phy 802.11 b/g/n etc. and a channel 
 	// in order to receive packets.
 	// Note: ESP8266 does not appear to support 5GHz.
-	wifi_set_channel(11);
+	wifi_set_channel(6);
 	wifi_set_phy_mode(2);
 	/* Note: it appears the channel might get reset to default (6)
 		 after a wifi_set_opmode call (maybe, we aren't sure
 		 if that's the case). Also, we got some watchdog resets once. */
 	os_timer_disarm(&timer);
-	os_timer_setfn(&timer, send_packet, NULL);
-	os_timer_arm(&timer, 500, 1);
-	wifi_raw_set_recv_cb(my_recv_cb);
+	os_timer_setfn(&timer, send_beacon, NULL);
+	os_timer_arm(&timer, 1000, 1);
+//	wifi_raw_set_recv_cb(my_recv_cb);
 }
 
 void ICACHE_FLASH_ATTR user_init()

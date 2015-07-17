@@ -16,6 +16,8 @@ Another issue is that the method only works when the ESP is in SOFTAP_MODE.
 In STATION_MODE, the eagle_lwip_getif function may crash, or the ieee80211_output_pbuf function
 may return an error. We don't know why.
 
+Also, if you're testing this with Wireshark, make sure Wireshark is listening on the 2.4 GHz wifi
+and on the correct channel.
 
 RECEIVING:
 The method currently allows the device to enter in monitor mode, and sniff every packet
