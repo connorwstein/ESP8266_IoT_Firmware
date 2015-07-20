@@ -43,7 +43,7 @@ static void print_esf_buf(struct esf_buf *ebuf)
 	ets_uart_printf("\tpad1 = 0x%02x\n", ebuf->pad1[0]);
 	ets_uart_printf("\te_data = %p {", ebuf->e_data);
 
-	for (i = 0; i < 32; i++) {
+	for (i = 0; i < 73; i++) {
 		ets_uart_printf("0x%02x, ", ((uint8 *)(ebuf->e_data))[i]);
 	}
 

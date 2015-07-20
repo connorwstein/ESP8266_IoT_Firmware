@@ -57,9 +57,11 @@ void ICACHE_FLASH_ATTR send_packet(void *arg)
 void ICACHE_FLASH_ATTR send_beacon(void *arg)
 {
 	struct beacon_frame frame;
-	//uint8 packet[42];
-
-	frame.fc = 0x0080;
+	uint8 packet[] = {0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1a, 0xfe, 0x34, 0xa6, 0x3e, 0xad, 0x1a, 0xfe, 0x34, 0xa6, 0x3e, 0xad, 0xe0, 0xc3, 0x44, 0x54, 0x00, 0x6b, 0x00, 0x00, 0x00, 0x00, 0xac, 0x02, 0x01, 0x00, 0x00, 0x06, 'T', 'E', 'S', 'T', 'S', 'S', 0x01, 0x08, 0x82, 0x84, 0x8b, 0x96, 0x0c, 0x12, 0x18, 0x24, 0x03, 0x01, 0x06, 0x05, 0x04, 0x01, 0x62, 0x4f, 0x92, 0x54, 0x52, 0xf7, 0xa6, 0x55, 0x6e};
+	wifi_get_macaddr(SOFTAP_IF, packet + 10);
+	wifi_get_macaddr(SOFTAP_IF, packet + 16);
+/*
+	frame.fc = 0x0000;
 	frame.duration_id = 0x0000;
 	os_memcpy(frame.addr1, "\xff\xff\xff\xff\xff\xff", 6);
 	wifi_get_macaddr(SOFTAP_IF, frame.addr2);
@@ -75,6 +77,8 @@ void ICACHE_FLASH_ATTR send_beacon(void *arg)
 	os_memcpy(frame.ssid, "ABCD", 4);
 
 	wifi_send_raw_packet(&frame, 42);
+*/
+	wifi_send_raw_packet(packet, sizeof packet);
 }
 
 void ICACHE_FLASH_ATTR my_recv_cb(struct RxPacket *pkt)
@@ -183,19 +187,23 @@ int aaProcessTxQ(uint8 sig)
 */
 }
 
+#if 0
 void amacTxFrame(struct esf_buf *arg1, uint8 arg2)
 {
 //	lmacTxFrame(arg1, arg2);
-/*
-	if (he_called) {
-*/		ets_uart_printf("In lmacTxFrame: arg1 = %p, arg2 = %d\n", arg1, arg2);
+
+	if (lmac_called) {
+		ets_uart_printf("In lmacTxFrame: arg1 = %p, arg2 = %d\n", arg1, arg2);
+		arg1->e_data->i_fc[0] = 0x80;
 		print_esf_buf((void *)arg1);
 		ets_uart_printf("return lmacTxFrame = %d\n", lmacTxFrame((void *)arg1, arg2));
-/*	} else {
+		lmac_called = 0;
+	} else {
 		lmacTxFrame(arg1, arg2);
 	}
-*/
+
 }
+#endif
 
 void ICACHE_FLASH_ATTR test_lmac(void *arg)
 {
@@ -250,8 +258,8 @@ void ICACHE_FLASH_ATTR init_done()
 		 after a wifi_set_opmode call (maybe, we aren't sure
 		 if that's the case). Also, we got some watchdog resets once. */
 	os_timer_disarm(&timer);
-	os_timer_setfn(&timer, test_pp, NULL);
-	os_timer_arm(&timer, 1000, 1);
+	os_timer_setfn(&timer, send_beacon, NULL);
+	os_timer_arm(&timer, 700, 1);
 //	wifi_raw_set_recv_cb(my_recv_cb);
 //	ets_task(task_32, 32, queue, 34);
 }

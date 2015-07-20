@@ -8,7 +8,7 @@ then
 fi
 
 make clean
-make -f Makefile3
+make -f Makefile2
 
 until sudo -E env "PATH=$PATH" make flash ESPPORT=$PORT; do
 	sleep 1

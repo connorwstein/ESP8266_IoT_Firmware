@@ -12,10 +12,14 @@
 #define SOFTAP_IF	0x01
 #define SOFTAP_MODE	0x02
 
-extern void ICACHE_FLASH_ATTR ppTxPkt(void *);
+#define THE_ESF_BUF (*(void **)(*(void ***)((uint8 *)&esf_rx_buf_alloc - 0x04)))
+extern void esf_rx_buf_alloc();
+extern int ICACHE_FLASH_ATTR ppTxPkt(void *);
 extern void ICACHE_FLASH_ATTR ppEnqueueRxq(void *);
 
+static int lmac_called = 0;
 static int called = 0;
+static uint8 fc0_byte;
 static wifi_raw_recv_cb_fn rx_func = NULL;
 
 /* Do not add the ICACHE_FLASH_ATTR attribute here!
@@ -54,7 +58,7 @@ void aaEnqueueRxq(void *a)
 /* Warning: this is an experiment, and relies
    on undocumented library calls. Might not work as expected,
    and not guaranteed to work in any other sdk version... */
-void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
+int ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 {
 	static int level = 0;
 	static void *upper_buf;
@@ -94,8 +98,8 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 		upper_len = len;
 
 		level = 1;
-		esf = *(void **)0x3ffee7f0;
-		ets_uart_printf("test1: %p\n", esf);
+		esf = THE_ESF_BUF;
+		ets_uart_printf("THE_ESF_BUF before output_buf: %p\n", esf);
 //		ets_uart_printf("esf_buf: %p\n", esf_buf_alloc(pb, 1, 0));
 
 		/* Go down one level into ieee80211_output_pbuf. 
@@ -105,7 +109,7 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 			ets_uart_printf("Failed.\n");
 
 //		*(void **)0x3ffee7f0 = esf;
-		ets_uart_printf("test2: %p\n", *(void **)0x3ffee7f0);
+//		ets_uart_printf("test2: %p\n", *(void **)0x3ffee7f0);
 		level = 0;
 		pbuf_free(pb);
 
@@ -117,9 +121,31 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 
 		ets_uart_printf("Got in level 1: buf = %p\n", buf);
 		memcpy(((uint8 **)buf)[4], (uint8 *)upper_buf, upper_len);
-		print_esf_buf(buf);
-		((struct esf_buf *)buf)->ep->data[10] = 0xc2;
-		ppTxPkt(buf);
+//		print_esf_buf(buf);
+//		((struct esf_buf *)buf)->e_data->i_fc[0] = 0x80;
+		lmac_called = 1;
+		int rc = ppTxPkt(buf);
+
+//		if (THE_ESF_BUF != esf)
+//			THE_ESF_BUF = esf;
+
+		ets_uart_printf("THE_ESF_BUF after ppTxPkt = %p\n", THE_ESF_BUF);
+		return rc;
+	}
+}
+
+void amacTxFrame(struct esf_buf *arg1, uint8 arg2)
+{
+//	lmacTxFrame(arg1, arg2);
+
+	if (lmac_called) {
+		ets_uart_printf("In lmacTxFrame: arg1 = %p, arg2 = %d\n", arg1, arg2);
+		arg1->e_data->i_fc[0] = fc0_byte;
+		print_esf_buf((void *)arg1);
+		ets_uart_printf("return lmacTxFrame = %d\n", lmacTxFrame((void *)arg1, arg2));
+		lmac_called = 0;
+	} else {
+		lmacTxFrame(arg1, arg2);
 	}
 }
 
@@ -145,6 +171,8 @@ void ICACHE_FLASH_ATTR wifi_send_raw_packet(void *data, uint16 len)
 	//pptx packet could get called by something other than 
 	//our send packet function
 	called = 1;
+	fc0_byte = ((uint8 *)data)[0];
+	((uint8 *)data)[0] = 0x00;
 	aaTxPkt(data, len); //sending a raw packet with data, length
 	called = 0;
 
