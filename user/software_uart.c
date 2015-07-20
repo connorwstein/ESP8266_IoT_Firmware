@@ -163,6 +163,16 @@ struct rx_buffer *ICACHE_FLASH_ATTR create_rx_buffer(uint16 response_size, rx_bu
 {
 	uint8 *buffer;
 	struct rx_buffer *buffer_struct;
+	uint32 heap_size;
+
+	heap_size = system_get_free_heap_size();
+
+	/* Check that we have enough heap space before calling malloc. */
+	if (response_size >= heap_size) {
+		ets_uart_printf("Not enough heap available to malloc %u bytes (free heap size = %u bytes).\n",
+				 response_size, heap_size);
+		return NULL;
+	}
 
 	buffer = (uint8 *)os_zalloc(response_size);
 
