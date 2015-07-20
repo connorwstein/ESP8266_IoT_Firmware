@@ -1,11 +1,17 @@
 #!/bin/sh
 
 PORT=$1
+
+if [ -z "$PORT" ]
+then
+	PORT=/dev/ttyUSB0
+fi
+
 make clean
-make -f Makefile2
+make -f Makefile3
 
 until sudo -E env "PATH=$PATH" make flash ESPPORT=$PORT; do
 	sleep 1
 done
 
-screen $PORT 115200
+sudo screen $PORT 115200

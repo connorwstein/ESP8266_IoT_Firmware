@@ -4,6 +4,7 @@
 #include "mem.h"
 
 #include "wifi_raw.h"
+#include "header.h"
 
 #define STATION_IF	0x00
 #define STATION_MODE	0x01
@@ -103,7 +104,7 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 		if (ieee80211_output_pbuf(ifp, pb))
 			ets_uart_printf("Failed.\n");
 
-		*(void **)0x3ffee7f0 = esf;
+//		*(void **)0x3ffee7f0 = esf;
 		ets_uart_printf("test2: %p\n", *(void **)0x3ffee7f0);
 		level = 0;
 		pbuf_free(pb);
@@ -114,8 +115,10 @@ void ICACHE_FLASH_ATTR aaTxPkt(void *buf, uint16 len)
 				   format expected by ppTxPkt. Just modify
 				   the packet data in the appropriate memory addresses. */
 
-		ets_uart_printf("Got in level 1\n");
+		ets_uart_printf("Got in level 1: buf = %p\n", buf);
 		memcpy(((uint8 **)buf)[4], (uint8 *)upper_buf, upper_len);
+		print_esf_buf(buf);
+		((struct esf_buf *)buf)->ep->data[10] = 0xc2;
 		ppTxPkt(buf);
 	}
 }
