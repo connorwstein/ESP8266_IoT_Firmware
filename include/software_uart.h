@@ -1,11 +1,17 @@
 #ifndef SOFTWARE_UART_H
 #define SOFTWARE_UART_H
 
+/* Converts between microseconds and timer clock ticks.
+   The NOW() macro returns time in terms of timer clock ticks.
+   The timer clock has a frequency of TIMER_CLK_FREQ = 312500 Hz
+   (see eagle_soc.h or ets_sys.h). */
+#define TOTICKS(x) (((x) * 5) >> 4)
+
 struct rx_buffer;
 
 typedef void (*rx_buffer_recv_cb)(struct rx_buffer *);
 
-struct rx_buffer{
+struct rx_buffer {
 	uint16 size;
 	uint8 *buf;
 	rx_buffer_recv_cb recv_cb;

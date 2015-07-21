@@ -10,7 +10,8 @@
 
 #include "debug.h"
 
-#define BROADCAST_RESPONSE_BUF_SIZE 100
+/* Update this if we ever use types longer than 70 chars! */
+#define BROADCAST_RESPONSE_BUF_SIZE 200
 
 extern void ICACHE_FLASH_ATTR init_done();
 
@@ -77,9 +78,9 @@ void ICACHE_FLASH_ATTR connect_to_network(const char *ssid, const char *password
 	DEBUG("exit connect_to_network");
 }
 
-void ICACHE_FLASH_ATTR udp_send_ipmac(struct espconn *conn)
+void ICACHE_FLASH_ATTR udp_send_deviceinfo(struct espconn *conn)
 {
-	DEBUG("enter udp_send_ipmac");
+	DEBUG("enter udp_send_deviceinfo");
 	struct ip_info info;
 	struct DeviceConfig conf;
 	uint8 *ipaddress;
@@ -88,7 +89,7 @@ void ICACHE_FLASH_ATTR udp_send_ipmac(struct espconn *conn)
 
 	if (!wifi_get_ip_info(STATION_IF, &info)) {
 		ets_uart_printf("Unable to get ip address of station\n");
-		DEBUG("exit udp_send_ipmac");
+		DEBUG("exit udp_send_deviceinfo");
 		return;
 	}
 
@@ -96,22 +97,26 @@ void ICACHE_FLASH_ATTR udp_send_ipmac(struct espconn *conn)
 
 	if (!wifi_get_macaddr(STATION_IF, mac)) {
 		ets_uart_printf("Failed to get MAC address.\n");
-		DEBUG("exit udp_send_ipmac");
+		DEBUG("exit udp_send_deviceinfo");
 		return;
 	}
 
 	if (DeviceConfig_read_config(&conf) != 0) {
 		ets_uart_printf("Failed to read device config.\n");
-		DEBUG("exit udp_send_ipmac");
+		DEBUG("exit udp_send_deviceinfo");
 		return;
 	}
 
 	os_memset(buff, 0, sizeof buff);
 
 	if (strlen(conf.name) > 0)
-		os_sprintf(buff, "NAME:%s IP:%s MAC:%s", conf.name, inet_ntoa(info.ip.addr), str_mac(mac));
+		os_sprintf(buff, "NAME:%s IP:%s MAC:%s ROOM:%s TYPE:%s",
+				conf.name, inet_ntoa(info.ip.addr), str_mac(mac),
+				conf.room, DeviceConfig_strtype(conf.type));
 	else
-		os_sprintf(buff, "NAME:%s IP:%s MAC:%s", str_mac(mac), inet_ntoa(info.ip.addr), str_mac(mac));
+		os_sprintf(buff, "NAME:%s IP:%s MAC:%s ROOM:%s TYPE:%s",
+				str_mac(mac), inet_ntoa(info.ip.addr), str_mac(mac),
+				conf.room, DeviceConfig_strtype(conf.type));
 
 	ets_uart_printf("Sending my NAME, IP and MAC address: %s\n", buff);
 
@@ -119,5 +124,5 @@ void ICACHE_FLASH_ATTR udp_send_ipmac(struct espconn *conn)
 		ets_uart_printf("espconn_sent failed.\n");
 
 	DeviceConfig_delete(&conf);
-	DEBUG("exit udp_send_ipmac");
+	DEBUG("exit udp_send_deviceinfo");
 }

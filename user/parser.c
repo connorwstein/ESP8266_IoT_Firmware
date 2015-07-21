@@ -48,6 +48,14 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 
 		DEBUG("exit parser_process_data");
 		return;
+	} else if (os_strcmp(cmd, "Room") == 0) {
+		if (DeviceConfig_set_room(params) != 0)
+			send_reply("Failed", (struct espconn *)arg);
+		else
+			send_reply("Room Set", (struct espconn *)arg);
+
+		DEBUG("exit parser_process_data");
+		return;
 	} else if (os_strcmp(cmd, "Type") == 0) {
 		if (os_strcmp(params, "Temperature") == 0)
 			rc = DeviceConfig_set_type(TEMPERATURE);
@@ -83,12 +91,12 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 			if (os_strcmp(cmd, "Temperature Get") == 0)
 				Temperature_get_temperature((struct espconn *)arg);
 			else if (os_strcmp(cmd, "Hello Temperature Devices?") == 0)
-				udp_send_ipmac((struct espconn *)arg);
+				udp_send_deviceinfo((struct espconn *)arg);
 
 			break;
 		case THERMOSTAT:
 			if (os_strcmp(cmd, "Hello Thermostat Devices?") == 0)
-				udp_send_ipmac((struct espconn *)arg);
+				udp_send_deviceinfo((struct espconn *)arg);
 
 			break;
 		case LIGHTING:
@@ -97,7 +105,7 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 			else if (os_strcmp(cmd, "Lighting Set") == 0)
 				Lighting_toggle_light();
 			else if (os_strcmp(cmd, "Hello Lighting Devices?") == 0)
-				udp_send_ipmac((struct espconn *)arg);
+				udp_send_deviceinfo((struct espconn *)arg);
 
 			break;
 		case CAMERA:
@@ -140,7 +148,7 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 				if (Camera_stop_pictures() != 0)
 					ets_uart_printf("Failed to stop taking pictures.\n");
 			} else if (os_strcmp(cmd, "Hello Camera Devices?") == 0) {
-				udp_send_ipmac((struct espconn *)arg);
+				udp_send_deviceinfo((struct espconn *)arg);
 			}
 
 			break;

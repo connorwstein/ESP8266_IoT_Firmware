@@ -7,7 +7,6 @@
 
 #include "software_uart.h"
 
-
 #define BITS_IN_BYTE 8
 
 static uint32 baud_rate = 38400;

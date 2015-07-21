@@ -87,8 +87,8 @@ void ICACHE_FLASH_ATTR user_init()
 		if (DeviceConfig_read_config(&conf) != 0) {
 			ets_uart_printf("Failed to read device config.\n");
 		} else {
-			ets_uart_printf("Current device config: device_name = %s, device_type = %d\n",
-					conf.name, conf.type);
+			ets_uart_printf("Current device config: device_name = %s, device_room = %s, device_type = %s\n",
+					conf.name, conf.room, DeviceConfig_strtype(conf.type));
 		}
 
 		DeviceConfig_delete(&conf);

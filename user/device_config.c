@@ -12,6 +12,19 @@
 #include "lighting.h"
 #include "temperature.h"
 
+const char *ICACHE_FLASH_ATTR DeviceConfig_strtype(enum DeviceType_t type)
+{
+	switch (type) {
+		case NONE:		return "NONE";
+		case TEMPERATURE:	return "TEMPERATURE";
+		case THERMOSTAT:	return "THERMOSTAT";
+		case LIGHTING:		return "LIGHTING";
+		case CAMERA:		return "CAMERA";
+
+		default:		return "???";
+	}
+}
+
 void ICACHE_FLASH_ATTR DeviceConfig_delete(struct DeviceConfig *conf)
 {
 	DEBUG("enter DeviceConfig_delete");
@@ -52,12 +65,13 @@ int ICACHE_FLASH_ATTR DeviceConfig_save_config(const struct DeviceConfig *conf)
 	}
 
 	os_memcpy(buf, &guard, sizeof guard);
-	os_memcpy(buf + sizeof guard, conf->name, sizeof conf->name);
-	os_memcpy(buf + sizeof guard + sizeof conf->name, &(conf->type), sizeof conf->type);
-	os_memcpy(buf + sizeof guard + sizeof conf->name + sizeof conf->type, &(conf->data_len), sizeof conf->data_len);
+	os_memcpy(buf + sizeof guard + DEVICE_CONFIG_NAME_OFFSET, conf->name, sizeof conf->name);
+	os_memcpy(buf + sizeof guard + DEVICE_CONFIG_ROOM_OFFSET, conf->room, sizeof conf->room);
+	os_memcpy(buf + sizeof guard + DEVICE_CONFIG_TYPE_OFFSET, &(conf->type), sizeof conf->type);
+	os_memcpy(buf + sizeof guard + DEVICE_CONFIG_LEN_OFFSET, &(conf->data_len), sizeof conf->data_len);
 
 	if (conf->data != NULL && conf->data_len != 0) {
-		os_memcpy(buf + sizeof guard + DEVICE_CONFIG_FIXED_LEN, conf->data, conf->data_len);
+		os_memcpy(buf + sizeof guard + DEVICE_CONFIG_DATA_OFFSET, conf->data, conf->data_len);
 	}
 
 	if (write_to_flash(DEVICE_CONFIG_GUARD_ADDR, (uint32 *)buf,
@@ -76,14 +90,21 @@ int ICACHE_FLASH_ATTR DeviceConfig_read_config(struct DeviceConfig *conf)
 {
 	DEBUG("enter DeviceConfig_read_config");
 	char name[sizeof conf->name];
+	char room[sizeof conf->room];
 	enum DeviceType_t type = NONE;
 	uint32 data_len = 0;
 	void *data = NULL;
 
 	os_memset(name, 0, sizeof name);
+	os_memset(room, 0, sizeof room);
 	os_memset(conf, 0, sizeof *conf);
 
 	if (read_from_flash(DEVICE_CONFIG_NAME_ADDR, (uint32 *)name, sizeof name) != 0) {
+		DEBUG("exit DeviceConfig_read_config");
+		return -1;
+	}
+
+	if (read_from_flash(DEVICE_CONFIG_ROOM_ADDR, (uint32 *)room, sizeof room) != 0) {
 		DEBUG("exit DeviceConfig_read_config");
 		return -1;
 	}
@@ -116,6 +137,7 @@ int ICACHE_FLASH_ATTR DeviceConfig_read_config(struct DeviceConfig *conf)
 	}
 
 	os_memcpy(conf->name, name, sizeof conf->name);
+	os_memcpy(conf->room, room, sizeof conf->room);
 	conf->type = type;
 	conf->data_len = data_len;
 	conf->data = data;
@@ -141,6 +163,38 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_name(const char *name)
 	os_memset(conf.name, 0, sizeof conf.name);
 	os_memcpy(conf.name, name, min_len);
 	ets_uart_printf("Will set my device name to %s!\n", conf.name);
+
+	if (DeviceConfig_save_config(&conf) != 0) {
+		ets_uart_printf("Failed to save config.\n");
+		DEBUG("exit DeviceConfig_set_name");
+		return -1;
+	}
+
+	os_free(conf.data);
+	ets_uart_printf("Successfully saved new config!\n");
+	ets_uart_printf("\n");
+	DEBUG("exit DeviceConfig_set_name");
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR DeviceConfig_set_room(const char *room)
+{
+	DEBUG("enter DeviceConfig_set_room");
+	struct DeviceConfig conf;
+	uint32 min_len;
+
+	ets_uart_printf("set_device_room: %s\n", room);
+	min_len = (strlen(room) < sizeof conf.room ? strlen(room) : sizeof conf.room);
+	os_memset(&conf, 0, sizeof conf);
+
+	if (DeviceConfig_already_exists()) {
+		if (DeviceConfig_read_config(&conf) != 0)
+			ets_uart_printf("Failed to read device config. Resetting config.\n");
+	}
+
+	os_memset(conf.room, 0, sizeof conf.room);
+	os_memcpy(conf.room, room, min_len);
+	ets_uart_printf("Will set my device room to %s!\n", conf.room);
 
 	if (DeviceConfig_save_config(&conf) != 0) {
 		ets_uart_printf("Failed to save config.\n");
