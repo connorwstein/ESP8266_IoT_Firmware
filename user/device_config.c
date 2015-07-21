@@ -15,11 +15,11 @@
 const char *ICACHE_FLASH_ATTR DeviceConfig_strtype(enum DeviceType_t type)
 {
 	switch (type) {
-		case NONE:		return "NONE";
-		case TEMPERATURE:	return "TEMPERATURE";
-		case THERMOSTAT:	return "THERMOSTAT";
-		case LIGHTING:		return "LIGHTING";
-		case CAMERA:		return "CAMERA";
+		case NONE:		return "None";
+		case TEMPERATURE:	return "Temperature";
+		case THERMOSTAT:	return "Thermostat";
+		case LIGHTING:		return "Lighting";
+		case CAMERA:		return "Camera";
 
 		default:		return "???";
 	}
