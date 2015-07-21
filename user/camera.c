@@ -17,6 +17,7 @@
 #define READ_SIZE_RESPONSE_SIZE		9
 #define READ_CONTENT_RESPONSE_SIZE	5
 #define STOP_PICTURES_RESPONSE_SIZE	5
+#define CAMERA_RESPONSE_TIMEOUT 1000 //in us, so 1 ms timeout
 
 static struct rx_buffer *previous_rxbuffer = NULL;
 
@@ -85,8 +86,10 @@ int ICACHE_FLASH_ATTR Camera_reset()
 	set_rx_buffer(reset_buffer);
 	enable_interrupts();
 	bit_bang_send(command, sizeof command);
-
-	while (!read_buffer_full()); //wait until buffer is full
+	int clock =NOW();
+	while (!read_buffer_full()){
+		if((NOW()- clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) return 1;
+	} //wait until buffer is full
 	
 	print_rx_buffer(reset_buffer);
  
@@ -115,8 +118,11 @@ int ICACHE_FLASH_ATTR Camera_take_picture()
 	set_rx_buffer(take_picture_buffer);
 	enable_interrupts();
 	bit_bang_send(command, sizeof command);
-
-	while (!read_buffer_full()); //wait until buffer is full
+	int clock =NOW();
+	while (!read_buffer_full()){
+		if((NOW()- clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) return 1;
+	} //wait until buffer is full
+	
 
 	print_rx_buffer(take_picture_buffer);
 
@@ -145,8 +151,11 @@ int ICACHE_FLASH_ATTR Camera_read_size(uint16 *size_p)
 	enable_interrupts();
 	bit_bang_send(command, sizeof command);
 
-	while (!read_buffer_full());	// wait until buffer is full
-
+	int clock =NOW();
+	while (!read_buffer_full()){
+		if((NOW()- clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) return 1;
+	} //wait until buffer is full
+	
 	print_rx_buffer(read_size_buffer);
 
 	if (os_memcmp(read_size_buffer->buf, success, sizeof success) != 0) {
@@ -210,7 +219,11 @@ int ICACHE_FLASH_ATTR Camera_stop_pictures()
 	enable_interrupts();
 	bit_bang_send(command, sizeof command);
 
-	while (!read_buffer_full()); //wait until buffer is full
+	int clock =NOW();
+	while (!read_buffer_full()){
+		if((NOW()- clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) return 1;
+	} //wait until buffer is full
+	
 
 	print_rx_buffer(stop_pictures_buffer);
 
