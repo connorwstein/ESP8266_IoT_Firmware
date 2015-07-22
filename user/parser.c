@@ -30,7 +30,11 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 	char *params = separate(data, ':');
 	int rc = -1;
 
-	if (os_strcmp(cmd, "Connect") == 0) {
+	if (os_strcmp(cmd, "Hello ESP Devices?") == 0) {
+		udp_send_deviceinfo((struct espconn *)arg);
+		DEBUG("exit parser_process_data");
+		return;
+	} else if (os_strcmp(cmd, "Connect") == 0) {
 		char *ssid = params;
 		char *password = separate(params, ';');
 		connect_to_network(ssid, password, (struct espconn *)arg);
@@ -90,22 +94,15 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 		case TEMPERATURE:
 			if (os_strcmp(cmd, "Temperature Get") == 0)
 				Temperature_get_temperature((struct espconn *)arg);
-			else if (os_strcmp(cmd, "Hello Temperature Devices?") == 0)
-				udp_send_deviceinfo((struct espconn *)arg);
 
 			break;
 		case THERMOSTAT:
-			if (os_strcmp(cmd, "Hello Thermostat Devices?") == 0)
-				udp_send_deviceinfo((struct espconn *)arg);
-
 			break;
 		case LIGHTING:
 			if (os_strcmp(cmd, "Lighting Get") == 0)
 				Lighting_get_light((struct espconn *)arg);
 			else if (os_strcmp(cmd, "Lighting Set") == 0)
 				Lighting_toggle_light();
-			else if (os_strcmp(cmd, "Hello Lighting Devices?") == 0)
-				udp_send_deviceinfo((struct espconn *)arg);
 
 			break;
 		case CAMERA:
@@ -147,8 +144,6 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 			} else if (os_strcmp(cmd, "Camera Stop Picture") == 0) {
 				if (Camera_stop_pictures() != 0)
 					ets_uart_printf("Failed to stop taking pictures.\n");
-			} else if (os_strcmp(cmd, "Hello Camera Devices?") == 0) {
-				udp_send_deviceinfo((struct espconn *)arg);
 			}
 
 			break;

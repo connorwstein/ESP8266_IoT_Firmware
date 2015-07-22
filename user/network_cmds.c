@@ -118,7 +118,7 @@ void ICACHE_FLASH_ATTR udp_send_deviceinfo(struct espconn *conn)
 				str_mac(mac), inet_ntoa(info.ip.addr), str_mac(mac),
 				conf.room, DeviceConfig_strtype(conf.type));
 
-	ets_uart_printf("Sending my NAME, IP and MAC address: %s\n", buff);
+	ets_uart_printf("Sending my device info: %s\n", buff);
 
 	if (espconn_sent(conn, (uint8 *)buff, os_strlen(buff)) != 0)
 		ets_uart_printf("espconn_sent failed.\n");
