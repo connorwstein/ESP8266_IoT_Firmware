@@ -14,7 +14,7 @@
 
 #include "debug.h"
 
-static void ICACHE_FLASH_ATTR send_reply(char *data, struct espconn *conn)
+static void ICACHE_FLASH_ATTR send_reply(const char *data, struct espconn *conn)
 {
 	ets_uart_printf("Sending reply: %s\n", data);
 	
@@ -74,6 +74,16 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 			send_reply("Failed", (struct espconn *)arg);
 		else
 			send_reply("Type Set", (struct espconn *)arg);
+
+		DEBUG("exit parser_process_data");
+		return;
+	} else if (os_strcmp(cmd, "Mac Get") == 0) {
+		uint8 macaddr[6];
+
+		if (!wifi_get_macaddr(SOFTAP_IF, macaddr))
+			send_reply("Failed", (struct espconn *)arg);
+		else
+			send_reply(str_mac(macaddr), (struct espconn *)arg);
 
 		DEBUG("exit parser_process_data");
 		return;

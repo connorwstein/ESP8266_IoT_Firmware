@@ -85,6 +85,7 @@ const char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid)
 	DEBUG("exit str_bssid");
 	return bssid_str;
 }
+
 const char * ICACHE_FLASH_ATTR str_mac(uint8 *mac)
 {
 	DEBUG("enter str_mac");
