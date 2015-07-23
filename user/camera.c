@@ -18,7 +18,9 @@
 #define READ_CONTENT_RESPONSE_SIZE	5
 #define STOP_PICTURES_RESPONSE_SIZE	5
 
-#define CAMERA_RESPONSE_TIMEOUT		1000 //in us, so 1 ms timeout
+/* In microseconds. Should be long enough for the camera to respond,
+   but not too long to avoid triggering the watchdog reset. */
+#define CAMERA_RESPONSE_TIMEOUT		2000
 
 static struct rx_buffer *previous_rxbuffer = NULL;
 
