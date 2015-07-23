@@ -25,14 +25,21 @@ void ICACHE_FLASH_ATTR init_done()
 
 	opmode = wifi_get_opmode();
 
+	ets_uart_printf("Current Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
+	ets_uart_printf("\n");
+
+#ifdef USE_AS_LOCATOR
+	if (opmode == STATIONAP_MODE) {
+		if (!wifi_softap_get_config(&config))
+			ets_uart_printf("Failed to get wifi locator softap config.\n");
+		else
+			ets_uart_printf("Locator Access Point SSID: %s\n\n", config.ssid);
+	}
+#endif
 	if (opmode != SOFTAP_MODE) {
 		DEBUG("exit init_done");
 		return;
 	}
-
-	ets_uart_printf("Current Opmode: 0x%02x (%s)\n", opmode, (opmode < 4 ? opmodes[opmode] : "???"));
-
-	ets_uart_printf("\n");
 
 	if (!wifi_softap_get_config(&config))
 		ets_uart_printf("Failed to get wifi softap config.\n");
@@ -98,7 +105,11 @@ void ICACHE_FLASH_ATTR user_init()
 
 	mqtt_init();
 
+#ifdef USE_AS_LOCATOR
+	wifi_set_opmode(STATIONAP_MODE);
+#else
 	wifi_set_opmode(STATION_MODE);
+#endif
 	wifi_set_event_handler_cb(sta_wifi_handler);
 
 	if (!wifi_station_set_auto_connect(1))

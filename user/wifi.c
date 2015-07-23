@@ -37,11 +37,19 @@ int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 	DEBUG("enter start_station");
 	struct station_config config;
 
+#ifdef USE_AS_LOCATOR
+	if (!wifi_set_opmode(STATIONAP_MODE)) {
+		ets_uart_printf("Failed to set as stationap mode.\n");
+		DEBUG("exit start_station");
+		return -1;
+	}
+#else
 	if (!wifi_set_opmode(STATION_MODE)) {
 		ets_uart_printf("Failed to set as station mode.\n");
 		DEBUG("exit start_station");
 		return -1;
 	}
+#endif
 
 	os_memset(&config.ssid, 0, 32);
 	os_memset(&config.password, 0, 64);

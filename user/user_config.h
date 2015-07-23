@@ -15,4 +15,8 @@
 #define MQTT_PASS	""
 #define MQTT_KEEPALIVE	0
 
+/* Comment/uncomment this to determine if the
+   device will be used as a locator or not. */
+#define USE_AS_LOCATOR
+
 #endif
