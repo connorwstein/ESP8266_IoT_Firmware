@@ -95,7 +95,8 @@ void ICACHE_FLASH_ATTR udp_send_deviceinfo(struct espconn *conn)
 
 	ipaddress = (uint8 *)inet_ntoa(info.ip.addr);
 
-	if (!wifi_get_macaddr(STATION_IF, mac)) {
+	/* Use the softap macaddress for the locators ssids. */
+	if (!wifi_get_macaddr(SOFTAP_IF, mac)) {
 		ets_uart_printf("Failed to get MAC address.\n");
 		DEBUG("exit udp_send_deviceinfo");
 		return;
