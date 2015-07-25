@@ -24,6 +24,33 @@ void ICACHE_FLASH_ATTR go_back_to_ap(struct espconn *conn)
 	char ssid[32];
 	char password[64] = DEFAULT_AP_PASSWORD;
 	uint8 channel = DEFAULT_AP_CHANNEL;
+	uint8 mode;
+
+	mode = wifi_get_opmode();
+
+	if (mode == SOFTAP_MODE) {
+		ets_uart_printf("Already in AP mode.\n");
+		DEBUG("exit go_back_to_ap");
+		return;
+	} else if (mode != STATION_MODE && mode != STATIONAP_MODE) {
+		ets_uart_printf("Was in an invalid opmode. Switching back to AP mode.\n");
+		wifi_set_opmode(SOFTAP_MODE);
+
+		generate_default_ssid(ssid, sizeof ssid);
+
+		set_connected_as_station(false);
+		set_received_connect_instruction(false);
+
+		if (start_access_point(ssid, password, channel) != 0) {
+			ets_uart_printf("Failed to start access point.\n");
+			DEBUG("exit go_back_to_ap");
+			return;
+		}
+
+		init_done();
+		DEBUG("exit go_back_to_ap");
+		return;
+	}
 
 	if (conn != NULL) {
 		if (espconn_disconnect(conn) != 0)
