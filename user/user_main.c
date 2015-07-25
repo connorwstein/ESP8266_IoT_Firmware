@@ -3,7 +3,6 @@
 #include "ets_sys.h"
 #include "user_interface.h"
 
-#include "ap_server.h"
 #include "device_config.h"
 #include "network_cmds.h"
 #include "helper.h"

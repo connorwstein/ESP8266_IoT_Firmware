@@ -5,7 +5,6 @@
 
 #include "helper.h"
 #include "mqtt.h"
-#include "sta_server.h"
 
 #include "debug.h"
 
@@ -174,6 +173,7 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 
 			if (HAS_BEEN_CONNECTED_AS_STATION || HAS_RECEIVED_CONNECT_INSTRUCTION) {
 				mqtt_stop();
+				sta_server_close();
 
 				//Disconnected from network - convert to AP for reconfiguration
 				if (!wifi_station_disconnect())
@@ -191,8 +191,7 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 			print_ip_info((struct ip_info *)&(event->event_info.got_ip));
 			ets_uart_printf("\n");	
 			HAS_BEEN_CONNECTED_AS_STATION = true;
-			sta_server_init_tcp();
-			sta_server_init_udp();
+			sta_server_init();
 			mqtt_start();
 			break;
 

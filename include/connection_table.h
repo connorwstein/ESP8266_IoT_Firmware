@@ -40,12 +40,15 @@ int ConnectionTable_insert(struct ConnectionTable *table, const struct espconn *
 int ConnectionTable_delete(struct ConnectionTable *table, const struct espconn *conn);
 
 int ConnectionTable_recvmsg_push(struct ConnectionTable *table, const struct espconn *conn,
-					const void *data, uint16 len, enum Memtype mem);
+					void *data, uint16 len, enum Memtype mem);
 int ConnectionTable_recvmsg_unshift(struct ConnectionTable *table, const struct espconn *conn,
-					const void **datap, uint16 *lenp, enum Memtype *memp);
+					void **datap, uint16 *lenp, enum Memtype *memp);
 int ConnectionTable_sendmsg_push(struct ConnectionTable *table, const struct espconn *conn,
-					const void *data, uint16 len, enum Memtype mem);
+					void *data, uint16 len, enum Memtype mem);
 int ConnectionTable_sendmsg_unshift(struct ConnectionTable *table, const struct espconn *conn,
-					const void **datap, uint16 *lenp, enum Memtype *memp);
+					void **datap, uint16 *lenp, enum Memtype *memp);
+
+bool ConnectionTable_recvmsg_empty(const struct ConnectionTable *table, const struct espconn *conn);
+bool ConnectionTable_sendmsg_empty(const struct ConnectionTable *table, const struct espconn *conn);
 
 #endif

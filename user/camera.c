@@ -10,7 +10,7 @@
 #include "device_config.h"
 #include "camera.h"
 #include "software_uart.h"
-#include "sta_server.h"
+#include "server.h"
 
 #define RESET_RESPONSE_SIZE		4
 #define TAKE_PICTURE_RESPONSE_SIZE	5
@@ -58,7 +58,9 @@ static void camera_picture_recv_done(struct rx_buffer *buffer)
 	ets_uart_printf("Done receiving picture contents: %d bytes\n", buffer->size);
 	ets_uart_printf("Sending data to phone.\n");
 
-	sta_server_send_large_buffer(reply_conn, buffer->buf, buffer->size);
+	if (tcpserver_send(reply_conn, buffer->buf, buffer->size, HEAP_MEM) != 0)
+		ets_uart_printf("Failed to send picture contents.\n");
+
 	os_free(buffer);
 	previous_rxbuffer = NULL;
 }
