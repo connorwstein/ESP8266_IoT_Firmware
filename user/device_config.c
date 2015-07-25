@@ -152,7 +152,9 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_name(const char *name)
 	uint32 min_len;
 
 	ets_uart_printf("set_device_name: %s\n", name);
-	min_len = (strlen(name) < sizeof conf.name ? strlen(name) : sizeof conf.name);
+
+	/* Leave space for NULL char */
+	min_len = (strlen(name) < sizeof conf.name - 1 ? strlen(name) : sizeof conf.name - 1);
 	os_memset(&conf, 0, sizeof conf);
 
 	if (DeviceConfig_already_exists()) {
@@ -184,7 +186,9 @@ int ICACHE_FLASH_ATTR DeviceConfig_set_room(const char *room)
 	uint32 min_len;
 
 	ets_uart_printf("set_device_room: %s\n", room);
-	min_len = (strlen(room) < sizeof conf.room ? strlen(room) : sizeof conf.room);
+
+	/* Leave space for NULL char */
+	min_len = (strlen(room) < sizeof conf.room - 1 ? strlen(room) : sizeof conf.room - 1);
 	os_memset(&conf, 0, sizeof conf);
 
 	if (DeviceConfig_already_exists()) {
