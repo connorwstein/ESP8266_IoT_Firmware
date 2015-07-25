@@ -18,6 +18,7 @@ extern void ICACHE_FLASH_ATTR init_done();
 void ICACHE_FLASH_ATTR go_back_to_ap()
 {
 	DEBUG("enter go_back_to_ap");
+	static ETSTimer init_done_timer;
 	char ssid[32];
 	char password[64] = DEFAULT_AP_PASSWORD;
 	uint8 channel = DEFAULT_AP_CHANNEL;
@@ -66,7 +67,11 @@ void ICACHE_FLASH_ATTR go_back_to_ap()
 		return;
 	}
 
-	init_done();
+	/* Need to exit the function to make sure the ip_info gets set.
+	   Call init_done in the timer callback instead. */
+	os_timer_disarm(&init_done_timer);
+	os_timer_setfn(&init_done_timer, init_done, NULL);
+	os_timer_arm(&init_done_timer, 1, false);
 	DEBUG("exit go_back_to_ap");
 }
 

@@ -460,6 +460,12 @@ int ICACHE_FLASH_ATTR sta_server_close()
 
 	ConnectionTable_destroy(tcpserver_conn_table);
 	tcpserver_conn_table = NULL;
+
+	/* Note: Do not call espconn_disconnect. It seems the SDK
+		 does not like this, and will fall in an infinite
+		 loop and then restart by the watchdog.
+		 It may also print an error like "lmac.c 599".
+	*/
 	tcpserver_conn = NULL;
 	udpserver_conn = NULL;
 	return 0;
@@ -480,6 +486,12 @@ int ICACHE_FLASH_ATTR ap_server_close()
 
 	ConnectionTable_destroy(tcpserver_conn_table);
 	tcpserver_conn_table = NULL;
+
+	/* Note: Do not call espconn_disconnect. It seems the SDK
+		 does not like this, and will fall in an infinite
+		 loop and then restart by the watchdog.
+		 It may also print an error like "lmac.c 599".
+	*/
 	tcpserver_conn = NULL;
 	return 0;
 }
