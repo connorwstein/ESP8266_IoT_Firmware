@@ -52,7 +52,7 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, struct espconn *conn)
 		DEBUG("exit tcpparser_process_data");
 		return;
 	} else if (os_strcmp(cmd, "Run AP") == 0) {
-		go_back_to_ap(conn);
+		go_back_to_ap();
 		DEBUG("exit tcpparser_process_data");
 		return;
 	} else if (os_strcmp(cmd, "Name") == 0) {
