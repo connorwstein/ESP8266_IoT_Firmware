@@ -5,3 +5,93 @@
 -- Check for hidden memory leak bugs or crashes.
 
 -- Implement more of the functionality to the camera.
+
+
+STUFF THAT SHOULD BE DONE EVENTUALLY TO MAKE THIS A MORE ROBUST/MODULAR SYSTEM:
+
+1. The format of the commands needs to include a separator character,
+   or a length field in order to reliably separate different commands.
+
+   REASON:
+   If many commands are sent, the recv_callbacks might receive them
+   all concatenated and the parser won't be able to parse them currently.
+
+   Separator:
+ 	Pros: easy to parse.
+	Cons: this character could not be used in any command.
+   Length field:
+	Pros: every character can be used in commands.
+	Cons: slightly harder to parse.
+
+   One common problem to both is that if the separator never arrives,
+   or the data never gets to the correct length, the parser should
+   not wait forever for the full packet. Also, the parser needs to
+   reassemble fragmented packets if they are too long (so it's better if
+   the commands are always short enough that they can fit in one
+   tcp recv callback).
+
+2. The commands should obey a fixed syntax that specifies:
+   length of command;
+   type of command (general, sensor-specific, etc.);
+   subtype (temperature, lighting, camera, etc.);
+   rest of command (relevant to the particular device);
+
+   REASON:
+   The server parser should only know about the general commands and syntax.
+   Every device will have its own subcommands and parser, which is provided
+   by the device driver authors. This allows a much more modular system,
+   where anyone can add new devices to the ESP if they follow the general
+   interfaces provided by our firmware. The server parser only looks at the
+   type/subtype fields to determine which device to forward the rest of the
+   command to.
+
+3. Every device driver should run its own task, which handles new commands
+   and device responses (similar to the server, with signals for RX, TX, etc.)
+   For example, if a new command is received, the driver's parser will determine
+   what to do and call the appropriate driver functions. The responses are then
+   pushed into the driver's TX queue and the task will forward them to the server.
+
+   REASON:
+   The server should not have to wait until a command is processed by the driver
+   before it dequeues the next one. If the driver is busy, this would block
+   the whole server. It is better for the server to just push new commands into
+   each driver's queue, and go on to process the next commands. The driver will
+   deal with its own queue when it is not busy anymore.
+
+4. Every driver should implement some common functions to initialize,
+   attach (start task) and detach (stop task). Attaching the task registers the
+   driver's task in a global list of driver tasks. If there are no more tasks
+   available (the current SDK allows a max of 3), attach will fail.
+
+   REASON:
+   Again, for modularity. When setting the device type, the DeviceConfig struct
+   will also register the driver's init, attach and detach functions in callbacks,
+   and save it to flash. When restarting, the firmware will load the device config
+   and call the callback functions. It does not need a switch for every device type.
+   This would happen in DeviceInit(). Also, in the event that more than one device
+   could be used, the firmware needs to allocate a separate task priority to each
+   device. The firmware looks for an available task priority and attach the device
+   to this priority. If no more tasks are available, attaching fails and the driver
+   will not run (poor guy...) :(
+
+5. Every driver should provide a "GUI" specification to the phone app, following
+   a syntax that would allow unknown devices to be controlled by the phone.
+
+   REASON:
+   Stanley's idea. Really, it all goes in the whole "modularity" theme, the phone
+   app should not have a hardcoded GUI for each device ever created!
+
+So the idea is that if someone wants to add a new device type to the firmware,
+they must provide a driver with a standard interface:
+
+init: initialize driver state (using DeviceConfig struct?)
+attach: start driver task, register in task table, setup RX, TX queues.
+detach: stop driver task, deregister from task table, destroy RX, TX queues.
+
+device parser that processes device-specific commands.
+standard GUI specification format.
+
+Currently, only one device will be able to run simultaneously.
+If it is ever possible to run more than one, the DeviceConfig will need
+to store config files for each device --> need a more sophisticated filesystem.
+This would be a challenging task and we probably won't do that.
