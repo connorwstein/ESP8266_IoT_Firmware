@@ -2,6 +2,7 @@
 #include "osapi.h"
 #include "ip_addr.h"
 #include "user_interface.h"
+#include "user_config.h"
 
 #include "helper.h"
 #include "mqtt.h"

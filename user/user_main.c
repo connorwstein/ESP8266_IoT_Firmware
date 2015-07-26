@@ -2,6 +2,7 @@
 #include "osapi.h"
 #include "ets_sys.h"
 #include "user_interface.h"
+#include "user_config.h"
 
 #include "ap_server.h"
 #include "device_config.h"
