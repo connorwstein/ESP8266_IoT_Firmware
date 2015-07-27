@@ -27,6 +27,7 @@ static os_event_t server_task_queue[SERVER_TASK_QUEUE_LEN];
 
 static void ICACHE_FLASH_ATTR server_task(os_event_t *e)
 {
+	DEBUG("enter server_task");
 	static bool sending = false;
 	void *data;
 	uint16 len;
@@ -88,6 +89,8 @@ static void ICACHE_FLASH_ATTR server_task(os_event_t *e)
 		default:
 			break;
 	}
+
+	DEBUG("exit server_task");
 }
 
 static void ICACHE_FLASH_ATTR tcpserver_recv_cb(void *arg, char *pdata, unsigned short len)
@@ -130,6 +133,7 @@ static void ICACHE_FLASH_ATTR tcpserver_recv_cb(void *arg, char *pdata, unsigned
 		return;
 	}
 
+	ets_uart_printf("DEBUG: Pushed data to conn table.\n");
 	ets_intr_unlock();
 
 	/* Post TCP_SIG_RX to server task. */
@@ -274,7 +278,7 @@ static void ICACHE_FLASH_ATTR tcpserver_disconnect_cb(void *arg)
 		return;
 	}
 
-	ets_intr_lock();
+/*	ets_intr_lock();
 
 	if (ConnectionTable_delete(tcpserver_conn_table, (struct espconn *)arg) != 0) {
 		ets_intr_unlock();
@@ -282,7 +286,7 @@ static void ICACHE_FLASH_ATTR tcpserver_disconnect_cb(void *arg)
 	} else {
 		ets_intr_unlock();
 	}
-
+*/
 	ets_uart_printf("\n");
 	DEBUG("exit tcpserver_disconnect_cb");
 }
@@ -428,17 +432,20 @@ static int ICACHE_FLASH_ATTR server_init_udp(uint8 ifnum)
 
 int tcpserver_send(struct espconn *conn, void *data, uint16 len, enum Memtype mem)
 {
+	DEBUG("enter tcpserver_send");
 	int rc;
 	ets_intr_lock();
 
 	if ((rc = ConnectionTable_sendmsg_push(tcpserver_conn_table, conn, data, len, mem)) != 0) {
 		ets_intr_unlock();
 		ets_uart_printf("Failed to push data into send queue: %d.\n", rc);
+		DEBUG("exit tcpserver_send");
 		return -1;
 	}
 
 	ets_intr_unlock();
 	system_os_post(SERVER_TASK_PRIO, SERVER_SIG_TX, (os_param_t)conn);
+	DEBUG("exit tcpserver_send");
 	return 0;
 }
 

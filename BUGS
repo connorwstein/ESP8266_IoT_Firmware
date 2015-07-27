@@ -1,0 +1,7 @@
+Use only one sending and one receiving queue.
+Otherwise, if someone sends a message and immediately disconnects,
+the connection record gets deleted, in which case the message never gets parsed.
+If we removed the deletion code, it creashes because the espconn struct has a NULL proto.tcp pointer.
+This occurs in is_same_conn. This would not have occured if we use just those queues qithout connection info,
+since then we don't need to check for is_same_conn.
+

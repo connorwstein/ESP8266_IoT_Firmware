@@ -16,12 +16,24 @@
 
 #include "debug.h"
 
-static void ICACHE_FLASH_ATTR send_reply(char *data, struct espconn *conn)
+static void ICACHE_FLASH_ATTR send_reply(char *pdata, struct espconn *conn)
 {
+	char *data;
+
+	data = (char *)os_zalloc(os_strlen(pdata) + 1);
+
+	if (data == NULL) {
+		ets_uart_printf("Failed to allocate memory for reply buffer.\n");
+		return;
+	}
+
+	os_memcpy(data, pdata, os_strlen(pdata));
 	ets_uart_printf("Sending reply: %s\n", data);
 
-	if (tcpserver_send(conn, data, os_strlen(data), STATIC_MEM) != 0)
+	if (tcpserver_send(conn, data, os_strlen(data), HEAP_MEM) != 0) {
 		ets_uart_printf("Failed to send reply.\n");
+		os_free(data);
+	}
 }
 
 void ICACHE_FLASH_ATTR udpparser_process_data(char *data, struct espconn *conn)
@@ -44,6 +56,8 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, struct espconn *conn)
 	char *cmd = data;
 	char *params = separate(data, ':');
 	int rc = -1;
+
+	ets_uart_printf("cmd = %s, params = %s\n", cmd, params);
 
 	if (os_strcmp(cmd, "Connect") == 0) {
 		char *ssid = params;
@@ -163,6 +177,11 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, struct espconn *conn)
 			} else if (os_strcmp(cmd, "Camera Stop Picture") == 0) {
 				if (Camera_stop_pictures() != 0)
 					ets_uart_printf("Failed to stop taking pictures.\n");
+			} else if (os_strcmp(cmd, "Camera Compression Ratio") == 0) {
+				if (Camera_compression_ratio(atoi(params)) == 0)
+					send_reply("Camera Compression Ratio Set", conn);
+				else
+					send_reply("Camera Compression Ratio Fail", conn);
 			}
 
 			break;
