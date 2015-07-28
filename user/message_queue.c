@@ -30,7 +30,7 @@ void MessageQueue_clear(struct MessageQueue *msgq)
 	STAILQ_INIT(&msgq->messages);
 	msgq->count = 0;
 
-	DEBUG("exit MessageQueue_destroy");
+	DEBUG("exit MessageQueue_clear");
 }
 
 int MessageQueue_push(struct MessageQueue *msgq, struct espconn *conn, void *data, uint16 len, enum Memtype mem)
