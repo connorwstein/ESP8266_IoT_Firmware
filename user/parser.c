@@ -36,7 +36,7 @@ static void ICACHE_FLASH_ATTR send_reply(char *pdata, struct espconn *conn)
 	}
 }
 
-void ICACHE_FLASH_ATTR udpparser_process_data(char *data, struct espconn *conn)
+void ICACHE_FLASH_ATTR udpparser_process_data(char *data, uint16 len, struct espconn *conn)
 {
 	DEBUG("enter udpparser_process_data");
 	char *cmd = data;
@@ -49,7 +49,7 @@ void ICACHE_FLASH_ATTR udpparser_process_data(char *data, struct espconn *conn)
 	}
 }
 
-void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, struct espconn *conn)
+void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct espconn *conn)
 {
 	DEBUG("enter tcpparser_process_data");
 	struct DeviceConfig config;

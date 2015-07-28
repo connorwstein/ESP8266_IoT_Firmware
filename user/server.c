@@ -5,12 +5,14 @@
 #include "user_interface.h"
 #include "mem.h"
 
-#include "connection_table.h"
 #include "device_config.h"
 #include "helper.h"
+#include "message_queue.h"
 #include "parser.h"
 
 #include "debug.h"
+
+#define TCP_MAX_PACKET_SIZE		1460
 
 #define SERVER_TASK_PRIO		1
 #define SERVER_TASK_QUEUE_LEN		20
@@ -19,16 +21,23 @@
 #define SERVER_SIG_TX			2
 #define SERVER_SIG_TX_DONE		3
 
-static struct espconn *tcpserver_conn = NULL;
-static struct espconn *udpserver_conn = NULL;
+static struct MessageQueue sendq = MESSAGE_QUEUE_INITIALIZER(sendq);
+static struct MessageQueue recvq = MESSAGE_QUEUE_INITIALIZER(recvq);
 
-static struct ConnectionTable *tcpserver_conn_table = NULL;
 static os_event_t server_task_queue[SERVER_TASK_QUEUE_LEN];
 
 static void ICACHE_FLASH_ATTR server_task(os_event_t *e)
 {
 	DEBUG("enter server_task");
 	static bool sending = false;
+	static bool more_fragments = false;
+	static struct espconn *sending_conn;
+	static uint8 *first_sending_chunk;
+	static uint8 *current_sending_chunk;
+	static uint16 sending_len;
+	static enum Memtype sending_mem;
+
+	struct espconn *conn;
 	void *data;
 	uint16 len;
 	enum Memtype mem;
@@ -37,10 +46,9 @@ static void ICACHE_FLASH_ATTR server_task(os_event_t *e)
 		case SERVER_SIG_RX:
 			ets_intr_lock();
 
-			if (ConnectionTable_recvmsg_unshift(tcpserver_conn_table, (struct espconn *)e->par,
-				&data, &len, &mem) == 0) {
+			if (MessageQueue_unshift(&recvq, &conn, &data, &len, &mem) == 0) {
 				ets_intr_unlock();
-				tcpparser_process_data(data, (struct espconn *)e->par);
+				tcpparser_process_data(data, len, conn);
 
 				if (mem == HEAP_MEM)
 					os_free(data);
@@ -54,16 +62,33 @@ static void ICACHE_FLASH_ATTR server_task(os_event_t *e)
 			ets_intr_lock();
 
 			if (!sending) {
-				if (ConnectionTable_sendmsg_unshift(tcpserver_conn_table, (struct espconn *)e->par,
-					&data, &len, &mem) == 0) {
+				if (MessageQueue_unshift(&sendq, &conn, &data, &len, &mem) == 0) {
 					sending = true;
 					ets_intr_unlock();
 
-					if (espconn_sent((struct espconn *)e->par, data, len) != ESPCONN_OK)
-						ets_uart_printf("Failed to send data.\n\n");
+					if (len <= TCP_MAX_PACKET_SIZE) {
+						more_fragments = false;
 
-					if (mem == HEAP_MEM)
-						os_free(data);
+						if (espconn_sent(conn, data, len) != ESPCONN_OK)
+							ets_uart_printf("Failed to send data.\n\n");
+
+						if (mem == HEAP_MEM)
+							os_free(data);
+					} else {
+						more_fragments = true;
+						sending_conn = conn;
+						first_sending_chunk = (uint8 *)data;
+						current_sending_chunk = (uint8 *)data;
+						sending_len = len;
+						sending_mem = mem;
+
+						if (espconn_sent(conn, data, TCP_MAX_PACKET_SIZE) != ESPCONN_OK)
+							ets_uart_printf("Failed to send data.\n\n");
+
+						current_sending_chunk += TCP_MAX_PACKET_SIZE;
+						sending_len -= TCP_MAX_PACKET_SIZE;
+						ets_uart_printf("More data to send.\n");
+					}
 				} else {
 					ets_intr_unlock();
 				}
@@ -76,12 +101,38 @@ static void ICACHE_FLASH_ATTR server_task(os_event_t *e)
 		case SERVER_SIG_TX_DONE:
 			ets_intr_lock();
 
-			if (ConnectionTable_sendmsg_empty(tcpserver_conn_table, (struct espconn *)e->par)) {
+			if (sending && more_fragments) {
+				ets_intr_unlock();
+
+				if (sending_len <= TCP_MAX_PACKET_SIZE) {
+					more_fragments = false;
+
+					if (espconn_sent(sending_conn, current_sending_chunk, sending_len) != ESPCONN_OK)
+						ets_uart_printf("Failed to send data.\n\n");
+
+					if (sending_mem == HEAP_MEM)
+						os_free(first_sending_chunk);
+
+					ets_intr_lock();
+					sending = false;
+					ets_intr_unlock();
+				} else {
+					more_fragments = true;
+
+					if (espconn_sent(sending_conn, current_sending_chunk, TCP_MAX_PACKET_SIZE) != ESPCONN_OK)
+						ets_uart_printf("Failed to send data.\n\n");
+
+					current_sending_chunk += TCP_MAX_PACKET_SIZE;
+					sending_len -= TCP_MAX_PACKET_SIZE;
+					ets_uart_printf("More data to send.\n");
+				}
+			} else if (MessageQueue_empty(&sendq)) {
 				sending = false;
 				ets_intr_unlock();
 			} else {
+				sending = false;
 				ets_intr_unlock();
-				system_os_post(SERVER_TASK_PRIO, SERVER_SIG_TX, (os_param_t)e->par);
+				system_os_post(SERVER_TASK_PRIO, SERVER_SIG_TX, 0);
 			}
 
 			break;
@@ -108,12 +159,6 @@ static void ICACHE_FLASH_ATTR tcpserver_recv_cb(void *arg, char *pdata, unsigned
 			inet_ntoa(remote_ip), remote_port);
 	ets_uart_printf("%s\n", pdata);
 
-	if (tcpserver_conn_table == NULL) {
-		ets_uart_printf("No connection table. Ignoring event.\n\n");
-		DEBUG("exit tcpserver_recv_cb");
-		return;
-	}
-
 	data = (char *)os_zalloc(len + 1);	/* Leave 1 byte for NULL char */
 
 	if (data == NULL) {
@@ -127,17 +172,16 @@ static void ICACHE_FLASH_ATTR tcpserver_recv_cb(void *arg, char *pdata, unsigned
 
 	ets_intr_lock();
 
-	if (ConnectionTable_recvmsg_push(tcpserver_conn_table, (struct espconn *)arg, data, len, HEAP_MEM) != 0) {
+	if (MessageQueue_push(&recvq, (struct espconn *)arg, data, len, HEAP_MEM) != 0) {
 		ets_intr_unlock();
 		ets_uart_printf("Failed to push recieved message in recv message queue.\n\n");
 		return;
 	}
 
-	ets_uart_printf("DEBUG: Pushed data to conn table.\n");
 	ets_intr_unlock();
 
 	/* Post TCP_SIG_RX to server task. */
-	system_os_post(SERVER_TASK_PRIO, SERVER_SIG_RX, (os_param_t)arg);
+	system_os_post(SERVER_TASK_PRIO, SERVER_SIG_RX, 0);
 
 	ets_uart_printf("\n");
 	DEBUG("exit tcpserver_recv_cb");
@@ -159,7 +203,7 @@ static void ICACHE_FLASH_ATTR udpserver_recv_cb(void *arg, char *pdata, unsigned
 	ets_uart_printf("%s\n", pdata);
 	ets_uart_printf("\n");
 
-	udpparser_process_data(pdata, arg);
+	udpparser_process_data(pdata, len, arg);
 	DEBUG("exit udpserver_recv_cb");
 }
 
@@ -176,14 +220,8 @@ static void ICACHE_FLASH_ATTR tcpserver_sent_cb(void *arg)
 	ets_uart_printf("Sent data to %s:%d!\n",
 			inet_ntoa(remote_ip), remote_port);
 
-	if (tcpserver_conn_table == NULL) {
-		ets_uart_printf("No connection table. Ignoring event.\n\n");
-		DEBUG("exit tcpserver_sent_cb");
-		return;
-	}
-
 	/* Post TCP_SIG_TX_DONE to server task. */
-	system_os_post(SERVER_TASK_PRIO, SERVER_SIG_TX_DONE, (os_param_t)arg);
+	system_os_post(SERVER_TASK_PRIO, SERVER_SIG_TX_DONE, 0);
 
 	ets_uart_printf("\n");
 	DEBUG("exit tcpserver_sent_cb");
@@ -195,7 +233,7 @@ static void ICACHE_FLASH_ATTR udpserver_sent_cb(void *arg)
 	uint32 remote_ip;
 	int remote_port;
 
-	ets_uart_printf("tcpserver_sent_cb\n");
+	ets_uart_printf("udpserver_sent_cb\n");
 	remote_port = ((struct espconn *)arg)->proto.tcp->remote_port;
 	remote_ip = *(uint32 *)((struct espconn *)arg)->proto.tcp->remote_ip;
 	ets_uart_printf("Sent data to %s:%d!\n",
@@ -216,21 +254,6 @@ static void ICACHE_FLASH_ATTR tcpserver_connect_cb(void *arg)
 	ets_uart_printf("New connection from %s:%d!\n",
 			inet_ntoa(remote_ip), remote_port);
 
-	if (tcpserver_conn_table == NULL) {
-		ets_uart_printf("No connection table. Ignoring event.\n\n");
-		DEBUG("exit tcpserver_connect_cb");
-		return;
-	}
-
-	ets_intr_lock();
-
-	if (ConnectionTable_insert(tcpserver_conn_table, (struct espconn *)arg) != 0) {
-		ets_intr_unlock();
-		ets_uart_printf("Failed to insert connection in connection table.\n");
-	} else {
-		ets_intr_unlock();
-	}
-
 	ets_uart_printf("\n");
 	DEBUG("exit tcpserver_connect_cb");
 }
@@ -239,22 +262,6 @@ static void ICACHE_FLASH_ATTR tcpserver_reconnect_cb(void *arg, sint8 err)
 {
 	DEBUG("enter tcpserver_reconnect_cb");
 	ets_uart_printf("Reconnect: err = %d\n", err);
-
-	if (tcpserver_conn_table == NULL) {
-		ets_uart_printf("No connection table. Ignoring event.\n\n");
-		DEBUG("exit tcpserver_reconnect_cb");
-		return;
-	}
-
-	ets_intr_lock();
-
-	if (ConnectionTable_delete(tcpserver_conn_table, (struct espconn *)arg) != 0)
-		ets_uart_printf("Failed to delete connection from table.\n");
-
-	if (ConnectionTable_insert(tcpserver_conn_table, (struct espconn *)arg) != 0)
-		ets_uart_printf("Failed to re-insert connection in table.\n");
-
-	ets_intr_unlock();
 	ets_uart_printf("\n");
 	DEBUG("exit tcpserver_reconnect_cb");
 }
@@ -272,21 +279,6 @@ static void ICACHE_FLASH_ATTR tcpserver_disconnect_cb(void *arg)
 	ets_uart_printf("%s:%d has disconnected!\n",
 			inet_ntoa(remote_ip), remote_port);
 
-	if (tcpserver_conn_table == NULL) {
-		ets_uart_printf("No connection table. Ignoring event.\n\n");
-		DEBUG("exit tcpserver_disconnect_cb");
-		return;
-	}
-
-/*	ets_intr_lock();
-
-	if (ConnectionTable_delete(tcpserver_conn_table, (struct espconn *)arg) != 0) {
-		ets_intr_unlock();
-		ets_uart_printf("Failed to delete connection from table.\n\n");
-	} else {
-		ets_intr_unlock();
-	}
-*/
 	ets_uart_printf("\n");
 	DEBUG("exit tcpserver_disconnect_cb");
 }
@@ -305,14 +297,8 @@ static int ICACHE_FLASH_ATTR server_init_tcp(uint8 ifnum)
 		return -1;
 	}
 
-	tcpserver_conn_table = ConnectionTable_create();
-
-	if (tcpserver_conn_table == NULL) {
-		ets_uart_printf("Failed to initialize station TCP server connection table.\n");
-		DEBUG("exit server_init_tcp");
-		return -1;
-	}
-
+	MessageQueue_clear(&sendq);
+	MessageQueue_clear(&recvq);
 	system_os_task(server_task, SERVER_TASK_PRIO, server_task_queue, SERVER_TASK_QUEUE_LEN);
 
 	server_tcp.local_port = 80;
@@ -373,7 +359,7 @@ static int ICACHE_FLASH_ATTR server_init_tcp(uint8 ifnum)
 		}
 	}
 
-	tcpserver_conn = &server_conn;
+//	tcpserver_conn = &server_conn;
 	ets_uart_printf("Successfully initialized TCP server.\n\n");
 	DEBUG("exit server_init_tcp");
 	return 0;
@@ -424,7 +410,7 @@ static int ICACHE_FLASH_ATTR server_init_udp(uint8 ifnum)
 		}
 	}
 
-	udpserver_conn = &server_conn;
+//	udpserver_conn = &server_conn;
 	ets_uart_printf("Successfully initialized UDP server.\n\n");
 	DEBUG("exit server_init_udp");
 	return 0;
@@ -433,18 +419,17 @@ static int ICACHE_FLASH_ATTR server_init_udp(uint8 ifnum)
 int tcpserver_send(struct espconn *conn, void *data, uint16 len, enum Memtype mem)
 {
 	DEBUG("enter tcpserver_send");
-	int rc;
 	ets_intr_lock();
 
-	if ((rc = ConnectionTable_sendmsg_push(tcpserver_conn_table, conn, data, len, mem)) != 0) {
+	if (MessageQueue_push(&sendq, conn, data, len, mem) != 0) {
 		ets_intr_unlock();
-		ets_uart_printf("Failed to push data into send queue: %d.\n", rc);
+		ets_uart_printf("Failed to push data into send queue.\n");
 		DEBUG("exit tcpserver_send");
 		return -1;
 	}
 
 	ets_intr_unlock();
-	system_os_post(SERVER_TASK_PRIO, SERVER_SIG_TX, (os_param_t)conn);
+	system_os_post(SERVER_TASK_PRIO, SERVER_SIG_TX, 0);
 	DEBUG("exit tcpserver_send");
 	return 0;
 }
@@ -460,22 +445,18 @@ int ICACHE_FLASH_ATTR sta_server_init()
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR sta_server_close()
+void ICACHE_FLASH_ATTR sta_server_close()
 {
-	if (tcpserver_conn_table == NULL)
-		return 0;
-
-	ConnectionTable_destroy(tcpserver_conn_table);
-	tcpserver_conn_table = NULL;
+	MessageQueue_clear(&sendq);
+	MessageQueue_clear(&recvq);
 
 	/* Note: Do not call espconn_disconnect. It seems the SDK
 		 does not like this, and will fall in an infinite
 		 loop and then restart by the watchdog.
 		 It may also print an error like "lmac.c 599".
 	*/
-	tcpserver_conn = NULL;
-	udpserver_conn = NULL;
-	return 0;
+//	tcpserver_conn = NULL;
+//	udpserver_conn = NULL;
 }
 
 int ICACHE_FLASH_ATTR ap_server_init()
@@ -486,19 +467,15 @@ int ICACHE_FLASH_ATTR ap_server_init()
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR ap_server_close()
+void ICACHE_FLASH_ATTR ap_server_close()
 {
-	if (tcpserver_conn_table == NULL)
-		return 0;
-
-	ConnectionTable_destroy(tcpserver_conn_table);
-	tcpserver_conn_table = NULL;
+	MessageQueue_clear(&sendq);
+	MessageQueue_clear(&recvq);
 
 	/* Note: Do not call espconn_disconnect. It seems the SDK
 		 does not like this, and will fall in an infinite
 		 loop and then restart by the watchdog.
 		 It may also print an error like "lmac.c 599".
 	*/
-	tcpserver_conn = NULL;
-	return 0;
+//	tcpserver_conn = NULL;
 }
