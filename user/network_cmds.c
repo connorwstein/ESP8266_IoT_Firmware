@@ -53,8 +53,8 @@ void ICACHE_FLASH_ATTR go_back_to_ap(struct espconn *conn)
 	}
 
 	if (conn != NULL) {
-		if (espconn_disconnect(conn) != 0)
-			ets_uart_printf("Failed to disconnect station client espconn.\n");
+//		if (espconn_disconnect(conn) != 0)
+//			ets_uart_printf("Failed to disconnect station client espconn.\n");
 	}
 
 	if (sta_server_conn != NULL) {

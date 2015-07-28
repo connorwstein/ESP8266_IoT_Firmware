@@ -12,15 +12,19 @@
 #include "software_uart.h"
 #include "sta_server.h"
 
-#define RESET_RESPONSE_SIZE		4
-#define TAKE_PICTURE_RESPONSE_SIZE	5
-#define READ_SIZE_RESPONSE_SIZE		9
-#define READ_CONTENT_RESPONSE_SIZE	5
-#define STOP_PICTURES_RESPONSE_SIZE	5
+#define RESET_RESPONSE_SIZE			4
+#define TAKE_PICTURE_RESPONSE_SIZE		5
+#define READ_SIZE_RESPONSE_SIZE			9
+#define READ_CONTENT_RESPONSE_SIZE		5
+#define STOP_PICTURES_RESPONSE_SIZE		5
+#define COMPRESSION_RATIO_RESPONSE_SIZE		5
+#define POWER_SAVING_ON_RESPONSE_SIZE		5
+#define POWER_SAVING_OFF_RESPONSE_SIZE		5
+#define SET_BAUD_RATE_RESPONSE_SIZE		5
 
 /* In microseconds. Should be long enough for the camera to respond,
    but not too long to avoid triggering the watchdog reset. */
-#define CAMERA_RESPONSE_TIMEOUT		2000
+#define CAMERA_RESPONSE_TIMEOUT			5000
 
 static struct rx_buffer *previous_rxbuffer = NULL;
 
@@ -63,6 +67,24 @@ static void camera_picture_recv_done(struct rx_buffer *buffer)
 	previous_rxbuffer = NULL;
 }
 
+static int ICACHE_FLASH_ATTR camera_save_config()
+{
+	struct camera_data data;
+
+	os_memset(&data, 0, sizeof data);
+	data.baud = baud_rate;
+	data.gpio_rx = gpio_camera_rx;
+	data.gpio_tx = gpio_camera_tx;
+
+	if (DeviceConfig_set_data(&data, sizeof data) != 0) {
+		ets_uart_printf("Failed to save camera config.\n");
+		return -1;
+	}
+
+	ets_uart_printf("Saved camera config.\n");
+	return 0;
+}
+
 int ICACHE_FLASH_ATTR Camera_reset()
 {
 	uint8 command[] = {'\x56', '\x00', '\x26', '\x00'};
@@ -95,8 +117,10 @@ int ICACHE_FLASH_ATTR Camera_reset()
 
 	/* wait until buffer is full or there is a timeout */
 	while (!read_buffer_full()) {
-		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT))
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
 			return 1;
+		}
 	}
 
 	print_rx_buffer(reset_buffer);
@@ -132,8 +156,10 @@ int ICACHE_FLASH_ATTR Camera_take_picture()
 
 	/* wait until buffer is full or there is a timeout */
 	while (!read_buffer_full()) {
-		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT))
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
 			return 1;
+		}
 	}
 
 	print_rx_buffer(take_picture_buffer);
@@ -168,8 +194,10 @@ int ICACHE_FLASH_ATTR Camera_read_size(uint16 *size_p)
 
 	/* wait until buffer is full or there is a timeout */
 	while (!read_buffer_full()) {
-		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT))
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
 			return 1;
+		}
 	}
 
 	print_rx_buffer(read_size_buffer);
@@ -240,8 +268,10 @@ int ICACHE_FLASH_ATTR Camera_stop_pictures()
 
 	/* wait until buffer is full or there is a timeout */
 	while (!read_buffer_full()) {
-		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT))
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
 			return 1;
+		}
 	}
 
 	print_rx_buffer(stop_pictures_buffer);
@@ -255,35 +285,133 @@ int ICACHE_FLASH_ATTR Camera_stop_pictures()
 	return 0;
 }
 
-void ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio)
+int ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio)
 {
-	uint8 command[] = {'\x56', '\x00', '\x31', '\x05', '\x01', '\x01', '\x12', '\x04', \
-			   '\x00'};
+	uint8 command[] = {'\x56', '\x00', '\x31', '\x05', '\x01', '\x01', '\x12', '\x04', '\x00'};
+	uint8 success[] = {'\x76', '\x00', '\x31', '\x00', '\x00'};
+	struct rx_buffer *compression_ratio_buffer;
+	int clock;
 
 	command[8] = ratio;
+	compression_ratio_buffer = create_rx_buffer(COMPRESSION_RATIO_RESPONSE_SIZE, NULL);
+
+	if (compression_ratio_buffer == NULL)
+		return -1;
+
+	ets_uart_printf("Set compression ratio to %d...\n", ratio);
+	set_rx_buffer(compression_ratio_buffer);
+	enable_interrupts();
 	bit_bang_send(command, sizeof command);
+
+	clock = NOW();
+
+	/* wait until buffer is full or there is a timeout */
+	while (!read_buffer_full()) {
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
+			return 1;
+		}
+	}
+
+	print_rx_buffer(compression_ratio_buffer);
+
+	if (os_memcmp(compression_ratio_buffer->buf, success, sizeof success) != 0) {
+		ets_uart_printf("Wrong compression response???\n");
+		destroy_rx_buffer(compression_ratio_buffer);
+		return 1;
+	}
+
+	destroy_rx_buffer(compression_ratio_buffer);
+	return 0;
 }
 
-void ICACHE_FLASH_ATTR Camera_set_image_size()
+int ICACHE_FLASH_ATTR Camera_set_image_size()
 {
 	// wat
 }
 
-void ICACHE_FLASH_ATTR Camera_power_saving_on()
+int ICACHE_FLASH_ATTR Camera_power_saving_on()
 {
 	uint8 command[] = {'\x56', '\x00', '\x3e', '\x03', '\x00', '\x01', '\x01'};
+	uint8 success[] = {'\x76', '\x00', '\x3e', '\x00', '\x00'};
+	struct rx_buffer *power_saving_on_buffer;
+	int clock;
+
+	power_saving_on_buffer = create_rx_buffer(POWER_SAVING_ON_RESPONSE_SIZE, NULL);
+
+	if (power_saving_on_buffer == NULL)
+		return -1;
+
+	ets_uart_printf("Power saving on...\n");
+	set_rx_buffer(power_saving_on_buffer);
+	enable_interrupts();
 	bit_bang_send(command, sizeof command);
+
+	clock = NOW();
+
+	/* wait until buffer is full or there is a timeout */
+	while (!read_buffer_full()) {
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
+			return 1;
+		}
+	}
+
+	print_rx_buffer(power_saving_on_buffer);
+
+	if (os_memcmp(power_saving_on_buffer->buf, success, sizeof success) != 0) {
+		destroy_rx_buffer(power_saving_on_buffer);
+		return 1;
+	}
+
+	destroy_rx_buffer(power_saving_on_buffer);
+	return 0;
 }
 
-void ICACHE_FLASH_ATTR Camera_power_saving_off()
+int ICACHE_FLASH_ATTR Camera_power_saving_off()
 {
 	uint8 command[] = {'\x56', '\x00', '\x3e', '\x03', '\x00', '\x01', '\x00'};
+	uint8 success[] = {'\x76', '\x00', '\x3e', '\x00', '\x00'};
+	struct rx_buffer *power_saving_off_buffer;
+	int clock;
+
+	power_saving_off_buffer = create_rx_buffer(POWER_SAVING_OFF_RESPONSE_SIZE, NULL);
+
+	if (power_saving_off_buffer == NULL)
+		return -1;
+
+	ets_uart_printf("Power saving off...\n");
+	set_rx_buffer(power_saving_off_buffer);
+	enable_interrupts();
 	bit_bang_send(command, sizeof command);
+
+	clock = NOW();
+
+	/* wait until buffer is full or there is a timeout */
+	while (!read_buffer_full()) {
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
+			return 1;
+		}
+	}
+
+	print_rx_buffer(power_saving_off_buffer);
+
+	if (os_memcmp(power_saving_off_buffer->buf, success, sizeof success) != 0) {
+		destroy_rx_buffer(power_saving_off_buffer);
+		return 1;
+	}
+
+	destroy_rx_buffer(power_saving_off_buffer);
+	return 0;
 }
 
-void ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
+int ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
 {
 	uint8 command[] = {'\x56', '\x00', '\x24', '\x03', '\x01', '\x00', '\x00'};
+	uint8 success[] = {'\x76', '\x00', '\x24', '\x00', '\x00'};
+	struct rx_buffer *set_baud_rate_buffer;
+	int clock;
 
 	switch (baud) {
 		case 9600:	command[5] = '\xae';
@@ -310,9 +438,45 @@ void ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
 				return;
 	}
 
-	// software_uart_config(baud, ...)
+	set_baud_rate_buffer = create_rx_buffer(SET_BAUD_RATE_RESPONSE_SIZE, NULL);
+
+	if (set_baud_rate_buffer == NULL)
+		return -1;
+
+	ets_uart_printf("Set baud rate to %u...\n", baud);
+	set_rx_buffer(set_baud_rate_buffer);
+	enable_interrupts();
 	bit_bang_send(command, sizeof command);
+
+	clock = NOW();
+
+	/* This might mess with the timing... */
 	baud_rate = baud;
+	software_uart_config(baud_rate, gpio_camera_rx, gpio_camera_tx);
+
+	/* wait until buffer is full or there is a timeout */
+	while (!read_buffer_full()) {
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
+			return 1;
+		}
+	}
+
+	print_rx_buffer(set_baud_rate_buffer);
+
+	if (os_memcmp(set_baud_rate_buffer->buf, success, sizeof success) != 0) {
+		destroy_rx_buffer(set_baud_rate_buffer);
+		return 1;
+	}
+
+	destroy_rx_buffer(set_baud_rate_buffer);
+
+	if (camera_save_config() != 0) {
+		ets_uart_printf("Failed to save new baud rate.\n");
+		return 1;
+	}
+
+	return 0;
 }
 
 int ICACHE_FLASH_ATTR Camera_init(struct DeviceConfig *conf)

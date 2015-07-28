@@ -123,7 +123,7 @@ void ICACHE_FLASH_ATTR sta_wifi_handler(System_Event_t *event)
 {
 	DEBUG("enter sta_wifi_handler");
 	struct ip_info info;
-	
+
 	switch (event->event) {
 		case EVENT_STAMODE_CONNECTED:
 			ets_uart_printf("Connected to Access Point!\n");

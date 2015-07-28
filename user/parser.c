@@ -154,6 +154,11 @@ void ICACHE_FLASH_ATTR parser_process_data(char *data, void *arg)
 			} else if (os_strcmp(cmd, "Camera Stop Picture") == 0) {
 				if (Camera_stop_pictures() != 0)
 					ets_uart_printf("Failed to stop taking pictures.\n");
+			} else if (os_strcmp(cmd, "Camera Compression Ratio") == 0) {
+				if (Camera_compression_ratio(atoi(params)) == 0)
+					send_reply("Camera Compression Ratio Set", (struct espconn *)arg);
+				else
+					send_reply("Camera Compression Ratio Fail", (struct espconn *)arg);
 			}
 
 			break;
