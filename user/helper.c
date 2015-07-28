@@ -55,7 +55,7 @@ int ICACHE_FLASH_ATTR generate_default_ssid(char *ssid, uint8 len)
 		return -1;
 	}
 
-	os_sprintf(ssid, DEFAULT_AP_SSID_PREFIX "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	os_sprintf(ssid, DEFAULT_AP_SSID_PREFIX "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	DEBUG("exit generate_default_ssid");
 	return 0;
 }
@@ -91,7 +91,7 @@ const char * ICACHE_FLASH_ATTR str_mac(uint8 *mac)
 	DEBUG("enter str_mac");
 	static char mac_str[20];
 
-	os_sprintf(mac_str, "%02x:%02x:%02x:%02x:%02x:%02x",
+	os_sprintf(mac_str, "%02x%02x%02x%02x%02x%02x",
 			mac[0], mac[1], mac[2],
 			mac[3], mac[4], mac[5]);
 
