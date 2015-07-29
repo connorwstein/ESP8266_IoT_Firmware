@@ -43,6 +43,10 @@ void ICACHE_FLASH_ATTR udpparser_process_data(char *data, uint16 len, struct esp
 	char *params = separate(data, ':');
 
 	if (os_strcmp(cmd, "Hello ESP Devices?") == 0) {
+#ifdef USE_AS_LOCATOR
+		if (in_locator_mode())
+			stop_locator_mode();
+#endif
 		udp_send_deviceinfo(conn);
 		DEBUG("exit udpparser_process_data");
 		return;

@@ -11,6 +11,7 @@ void ICACHE_FLASH_ATTR set_received_connect_instruction(bool val);
 
 bool ICACHE_FLASH_ATTR in_locator_mode();
 void ICACHE_FLASH_ATTR start_locator_mode();
+void ICACHE_FLASH_ATTR stop_locator_mode();
 
 int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password);
 int ICACHE_FLASH_ATTR start_access_point(const char *ssid, const char *password, uint8 channel);
