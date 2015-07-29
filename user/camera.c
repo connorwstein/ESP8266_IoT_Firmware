@@ -32,7 +32,7 @@ static uint32 baud_rate;
 static uint8 gpio_camera_rx;
 static uint8 gpio_camera_tx;
 
-struct espconn *reply_conn = NULL;
+static struct espconn *reply_conn = NULL;
 
 struct camera_data {
 	uint32 baud;

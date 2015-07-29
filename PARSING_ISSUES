@@ -1,0 +1,40 @@
+One idea for how the commands format could look like:
+
++-------+-------+-------+-------+------ ... -------+
+|               |               |                  |
+|    LENGTH     |      TYPE     |  REST OF COMMAND |
+|               |               |                  |
++-------+-------+-------+-------+------ ... -------+
+
+
+LENGTH (2 bytes):
+length of the whole packet, including the LENGTH and TYPE fields.
+The minimum value of the LENGTH field is 4.
+
+TYPE (2 bytes):
+type of command, may be extensible by reserving 0xffff for additional bytes in the REST OF COMMAND.
+
+REST OF COMMAND (variable length):
+the rest of the command, containing type-specific content, and/or type extensions if TYPE = 0xffff.
+The length of this field is equal to (LENGTH - 4) bytes.
+
+
+IMPLEMENTATION OF THE PARSER:
+The server parser will read the LENGTH and TYPE fields, and forward the packet to the queue
+of the appropriate device driver or general commands. Fragments will be reassembled until
+the LENGTH value is reached, or a timeout occurs, in which case the packet will be discarded
+and possibly a failure notice may be sent. One must be careful not to combine fragments coming
+from different connections. Might need to compare the IP address and port.
+One way to implement the timeout would be for the server to store a NOW() timestamp in the
+first received chunk, and compare the current NOW() value with this initial timestamp. Or maybe
+using an ETSTimer. Not sure how many of these can run concurrently.
+
+When a packet has been fully reassembled (generally, that shouldn't be too long
+since most commands ought to be quite short, fitting in one tcp recv callback)
+it can be processed by the driver.
+
+Though there are issues, such as whether the order in which packets are processed should matter.
+If the user sent the commands A, B and C in that order, he might expect the driver to process
+them in that order as well. But what if the driver finished reassembling B before A? Should it
+go on to execute B? Also, how does one decide between commands given by two different users?
+Depending on the order of execution, the results could be quite different...

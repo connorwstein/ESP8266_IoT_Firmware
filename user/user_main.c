@@ -72,7 +72,7 @@ void ICACHE_FLASH_ATTR user_init()
 	struct DeviceConfig conf;
 	
 //	system_restore();
-	system_set_os_print(0);
+//	system_set_os_print(0);
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
 	ets_uart_printf("\n\n\n");
 	ets_uart_printf("Free heap: %u\n", system_get_free_heap_size());

@@ -13,6 +13,13 @@
 static bool HAS_BEEN_CONNECTED_AS_STATION = false;
 static bool HAS_RECEIVED_CONNECT_INSTRUCTION = false;
 
+#ifdef USE_AS_LOCATOR
+static bool IN_LOCATOR_MODE = false;
+
+#define LOCATOR_TIMEOUT		10000	/* in milliseconds */
+#define HIGH_POWER_VALUE	80	/* in whatever units system_phy_set_max_tpw uses */
+#endif
+
 /* Set this as wifi handler between system_restart() and resetting the flags
    to avoid getting wifi disconnected events before the flags have been reset
    and get into a restart loop. */
@@ -152,6 +159,38 @@ void ICACHE_FLASH_ATTR set_received_connect_instruction(bool val)
 {
 	HAS_RECEIVED_CONNECT_INSTRUCTION = val;
 }
+
+#ifdef USE_AS_LOCATOR
+static void ICACHE_FLASH_ATTR stop_locator_mode(void *timer_arg)
+{
+	DEBUG("enter stop_locator_mode");
+	ets_uart_printf("Low-power locator mode end.\n");
+	system_phy_set_max_tpw(HIGH_POWER_VALUE);	/* Need to come up with non-magic numbers! */
+	IN_LOCATOR_MODE = false;
+	DEBUG("exit stop_locator_mode");
+}
+
+bool ICACHE_FLASH_ATTR in_locator_mode()
+{
+	DEBUG("enter in_locator_mode");
+	DEBUG("exit in_locator_mode");
+	return IN_LOCATOR_MODE;
+}
+
+void ICACHE_FLASH_ATTR start_locator_mode()
+{
+	DEBUG("enter start_locator_mode");
+	static ETSTimer locator_timer;
+	ets_uart_printf("Starting low-power locator mode.\n");
+
+	IN_LOCATOR_MODE = true;
+	system_phy_set_max_tpw(0);
+	os_timer_disarm(&locator_timer);
+	os_timer_setfn(&locator_timer, stop_locator_mode, NULL);
+	os_timer_arm(&locator_timer, LOCATOR_TIMEOUT, false);
+	DEBUG("exit start_locator_mode");
+}
+#endif
 
 int ICACHE_FLASH_ATTR start_station(const char *ssid, const char *password)
 {

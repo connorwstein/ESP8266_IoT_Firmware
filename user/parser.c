@@ -46,7 +46,20 @@ void ICACHE_FLASH_ATTR udpparser_process_data(char *data, uint16 len, struct esp
 		udp_send_deviceinfo(conn);
 		DEBUG("exit udpparser_process_data");
 		return;
+#ifdef USE_AS_LOCATOR
+	} else if (os_strcmp(cmd, "Devices Low Power") == 0) {
+		/* Need to avoid going to locator mode twice if he sends the commands multiple times! */
+		if (!in_locator_mode())
+			start_locator_mode();
+
+		udp_send_deviceinfo(conn);
+		DEBUG("exit udpparser_process_data");
+		return;
 	}
+#else
+	}
+#endif
+
 }
 
 void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct espconn *conn)

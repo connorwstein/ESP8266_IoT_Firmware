@@ -6,9 +6,6 @@
 
 -- Implement more of the functionality to the camera.
 
-FIX THE CONNECTIONTABLE. INSTEAD OF HAVING ONE FOR EACH
- CONNECTION, keep all in same queue. Because if they disconnect before I parse the data,
- I will never be able to process the request.
 
 STUFF THAT SHOULD BE DONE EVENTUALLY TO MAKE THIS A MORE ROBUST/MODULAR SYSTEM:
 
