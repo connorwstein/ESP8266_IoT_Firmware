@@ -17,6 +17,7 @@ static bool HAS_RECEIVED_CONNECT_INSTRUCTION = false;
 static bool IN_LOCATOR_MODE = false;
 
 #define LOCATOR_TIMEOUT		10000	/* in milliseconds */
+#define LOW_POWER_VALUE		30
 #define HIGH_POWER_VALUE	80	/* in whatever units system_phy_set_max_tpw uses */
 #endif
 
@@ -184,7 +185,7 @@ void ICACHE_FLASH_ATTR start_locator_mode()
 	ets_uart_printf("Starting low-power locator mode.\n");
 
 	IN_LOCATOR_MODE = true;
-	system_phy_set_max_tpw(0);
+	system_phy_set_max_tpw(LOW_POWER_VALUE);
 	os_timer_disarm(&locator_timer);
 	os_timer_setfn(&locator_timer, stop_locator_mode, NULL);
 	os_timer_arm(&locator_timer, LOCATOR_TIMEOUT, false);
