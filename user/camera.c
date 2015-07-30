@@ -129,7 +129,8 @@ int ICACHE_FLASH_ATTR Camera_reset()
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
-				/* memory leak. Need to disable interrupts and destroy rx_buffer here. */
+			disable_interrupts();
+			destroy_rx_buffer(reset_buffer);
 			return 1;
 		}
 	}
@@ -170,6 +171,8 @@ int ICACHE_FLASH_ATTR Camera_take_picture()
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(take_picture_buffer);
 			return 1;
 		}
 	}
@@ -209,6 +212,8 @@ int ICACHE_FLASH_ATTR Camera_read_size(uint16 *size_p)
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(read_size_buffer);
 			return 1;
 		}
 	}
@@ -285,6 +290,8 @@ int ICACHE_FLASH_ATTR Camera_stop_pictures()
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(stop_pictures_buffer);
 			return 1;
 		}
 	}
@@ -325,6 +332,8 @@ int ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio)
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(compression_ratio_buffer);
 			return 1;
 		}
 	}
@@ -370,6 +379,8 @@ int ICACHE_FLASH_ATTR Camera_power_saving_on()
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(power_saving_on_buffer);
 			return 1;
 		}
 	}
@@ -409,6 +420,8 @@ int ICACHE_FLASH_ATTR Camera_power_saving_off()
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(power_saving_off_buffer);
 			return 1;
 		}
 	}
@@ -477,6 +490,8 @@ int ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(set_baud_rate_buffer);
 			return 1;
 		}
 	}
