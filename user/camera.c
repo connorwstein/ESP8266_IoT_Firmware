@@ -42,6 +42,8 @@ struct camera_data {
 
 static const struct camera_data DEFAULT_CAMERA_DATA = {.baud = 38400, .gpio_rx = 5, .gpio_tx = 4};
 
+static bool IS_CAMERA_BUSY = true;	/* true because reset! */
+
 static void ICACHE_FLASH_ATTR print_rx_buffer(struct rx_buffer *buffer)
 {
 	int j = 0;
@@ -69,6 +71,10 @@ static void camera_picture_recv_done(struct rx_buffer *buffer)
 
 	os_free(buffer);
 	previous_rxbuffer = NULL;
+	/* Unlock camera for recv done */
+	ets_intr_lock();
+	IS_CAMERA_BUSY = false;
+	ets_intr_unlock();
 }
 
 static int ICACHE_FLASH_ATTR camera_save_config()
@@ -123,6 +129,7 @@ int ICACHE_FLASH_ATTR Camera_reset()
 	while (!read_buffer_full()) {
 		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
 			ets_uart_printf("Camera response timeout.\n");
+				/* memory leak. Need to disable interrupts and destroy rx_buffer here. */
 			return 1;
 		}
 	}
@@ -148,8 +155,9 @@ int ICACHE_FLASH_ATTR Camera_take_picture()
 
 	take_picture_buffer = create_rx_buffer(TAKE_PICTURE_RESPONSE_SIZE, NULL);
 
-	if (take_picture_buffer == NULL)
+	if (take_picture_buffer == NULL) {
 		return -1;
+	}
 
 	ets_uart_printf("Taking picture...\n");
 	set_rx_buffer(take_picture_buffer);
@@ -186,8 +194,9 @@ int ICACHE_FLASH_ATTR Camera_read_size(uint16 *size_p)
 
 	read_size_buffer = create_rx_buffer(READ_SIZE_RESPONSE_SIZE, NULL);
 
-	if (read_size_buffer == NULL)
+	if (read_size_buffer == NULL) {
 		return -1;
+	}
 
 	ets_uart_printf("Reading picture size...\n");
 	set_rx_buffer(read_size_buffer);
@@ -238,8 +247,9 @@ int ICACHE_FLASH_ATTR Camera_read_content(uint16 init_addr, uint16 data_len,
 	reply_conn = rep_conn;
 	read_content_buffer = create_rx_buffer(2 * READ_CONTENT_RESPONSE_SIZE + data_len, camera_picture_recv_done);
 
-	if (read_content_buffer == NULL)
+	if (read_content_buffer == NULL) {
 		return -1;
+	}
 
 	ets_uart_printf("Reading picture contents...\n");
 	set_rx_buffer(read_content_buffer);
@@ -247,6 +257,7 @@ int ICACHE_FLASH_ATTR Camera_read_content(uint16 init_addr, uint16 data_len,
 	bit_bang_send(command, sizeof command);
 	previous_rxbuffer = read_content_buffer;
 
+	/* Do not unlock the camera here. It will be done after the camera has received all data. */
 	ets_uart_printf("Free heap size = %u\n", system_get_free_heap_size());
 	return 0;
 }
@@ -299,8 +310,9 @@ int ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio)
 	command[8] = ratio;
 	compression_ratio_buffer = create_rx_buffer(COMPRESSION_RATIO_RESPONSE_SIZE, NULL);
 
-	if (compression_ratio_buffer == NULL)
+	if (compression_ratio_buffer == NULL) {
 		return -1;
+	}
 
 	ets_uart_printf("Set compression ratio to %d...\n", ratio);
 	set_rx_buffer(compression_ratio_buffer);
@@ -343,8 +355,9 @@ int ICACHE_FLASH_ATTR Camera_power_saving_on()
 
 	power_saving_on_buffer = create_rx_buffer(POWER_SAVING_ON_RESPONSE_SIZE, NULL);
 
-	if (power_saving_on_buffer == NULL)
+	if (power_saving_on_buffer == NULL) {
 		return -1;
+	}
 
 	ets_uart_printf("Power saving on...\n");
 	set_rx_buffer(power_saving_on_buffer);
@@ -381,8 +394,9 @@ int ICACHE_FLASH_ATTR Camera_power_saving_off()
 
 	power_saving_off_buffer = create_rx_buffer(POWER_SAVING_OFF_RESPONSE_SIZE, NULL);
 
-	if (power_saving_off_buffer == NULL)
+	if (power_saving_off_buffer == NULL) {
 		return -1;
+	}
 
 	ets_uart_printf("Power saving off...\n");
 	set_rx_buffer(power_saving_off_buffer);
@@ -444,8 +458,9 @@ int ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud)
 
 	set_baud_rate_buffer = create_rx_buffer(SET_BAUD_RATE_RESPONSE_SIZE, NULL);
 
-	if (set_baud_rate_buffer == NULL)
+	if (set_baud_rate_buffer == NULL) {
 		return -1;
+	}
 
 	ets_uart_printf("Set baud rate to %u...\n", baud);
 	set_rx_buffer(set_baud_rate_buffer);
@@ -515,6 +530,9 @@ int ICACHE_FLASH_ATTR Camera_init(struct DeviceConfig *conf)
 	software_uart_config(baud_rate, gpio_camera_rx, gpio_camera_tx);
 
 	ets_uart_printf("Camera initialized. Rx: %d Tx: %d Baud: %d\n", gpio_camera_rx, gpio_camera_tx, baud_rate);
+	ets_intr_lock();
+	IS_CAMERA_BUSY = false;
+	ets_intr_unlock();
 	return 0;
 }
 
@@ -531,4 +549,19 @@ int ICACHE_FLASH_ATTR Camera_set_default_data(struct DeviceConfig *config)
 	os_memcpy(config->data, &DEFAULT_CAMERA_DATA, sizeof (struct camera_data));
 
 	return 0;
+}
+
+bool ICACHE_FLASH_ATTR Camera_is_busy()
+{
+	return IS_CAMERA_BUSY;
+}
+
+void ICACHE_FLASH_ATTR Camera_set_busy()
+{
+	IS_CAMERA_BUSY = true;
+}
+
+void ICACHE_FLASH_ATTR Camera_unset_busy()
+{
+	IS_CAMERA_BUSY = false;
 }

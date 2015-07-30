@@ -158,16 +158,34 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 
 			break;
 		case CAMERA:
+			ets_intr_lock();
+
+			if (Camera_is_busy()) {
+				ets_uart_printf("Camera is currently busy.\n");
+				ets_intr_unlock();
+				break;
+			}
+
 			if (os_strcmp(cmd, "Camera Take Picture") == 0) {
+				Camera_set_busy();
+				ets_intr_unlock();
+
 				if (Camera_take_picture() == 0) {
 					send_reply("Picture Taken", conn);
 				} else {
 					ets_uart_printf("Failed to take picture.\n");
 					send_reply("Picture Take Fail", conn);
 				}
+
+				ets_intr_lock();
+				Camera_unset_busy();
+				ets_intr_unlock();
 			} else if (os_strcmp(cmd, "Camera Get Size") == 0) {
 				uint16 size;
 				char reply[10];
+
+				Camera_set_busy();
+				ets_intr_unlock();
 
 				if (Camera_read_size(&size) == 0) {
 					ets_uart_printf("Got picture size: %d bytes\n", size);
@@ -177,28 +195,58 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 					ets_uart_printf("Failed to read picture size.\n");
 					send_reply("Get Size Fail", conn);
 				}
+
+				ets_intr_lock();
+				Camera_unset_busy();
+				ets_intr_unlock();
 			} else if (os_strcmp(cmd, "Camera Get Picture") == 0) {
 				uint16 size;
+
+				Camera_set_busy();
+				ets_intr_unlock();
 
 				if (Camera_read_size(&size) == 0) {
 					ets_uart_printf("Got picture size: %d bytes\n", size);
 				} else {
 					ets_uart_printf("Failed to read picture size.\n");
 					send_reply("Picture Got Fail", conn);
+					ets_intr_lock();
+					Camera_unset_busy();
+					ets_intr_unlock();
+					break;	/* Don't get picture if get size failed. */
 				}
 
 				if (!Camera_read_content(0x0000, size, 0x000a, conn) == 0) {
 					ets_uart_printf("Failed to read picture contents.\n");
 					send_reply("Picture Got Fail", conn);
+					ets_intr_lock();
+					Camera_unset_busy();
+					ets_intr_unlock();
 				}
+
+				/* Do not unlock the camera here. It will be unlocked after data was received. */
 			} else if (os_strcmp(cmd, "Camera Stop Picture") == 0) {
+				Camera_set_busy();
+				ets_intr_unlock();
+
 				if (Camera_stop_pictures() != 0)
 					ets_uart_printf("Failed to stop taking pictures.\n");
+
+				ets_intr_lock();
+				Camera_unset_busy();
+				ets_intr_unlock();
 			} else if (os_strcmp(cmd, "Camera Compression Ratio") == 0) {
+				Camera_set_busy();
+				ets_intr_unlock();
+
 				if (Camera_compression_ratio(atoi(params)) == 0)
 					send_reply("Camera Compression Ratio Set", conn);
 				else
 					send_reply("Camera Compression Ratio Fail", conn);
+
+				ets_intr_lock();
+				Camera_unset_busy();
+				ets_intr_unlock();
 			}
 
 			break;
@@ -206,6 +254,7 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 			break;
 	}
 
+	ets_uart_printf("DEBUG: heap size = %u\n", system_get_free_heap_size());
 	DeviceConfig_delete(&config);
 	DEBUG("exit tcpparser_process_data");
 }

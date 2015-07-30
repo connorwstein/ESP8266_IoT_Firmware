@@ -21,4 +21,8 @@ int ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud);
 int ICACHE_FLASH_ATTR Camera_init(struct DeviceConfig *config);
 int ICACHE_FLASH_ATTR Camera_set_default_data(struct DeviceConfig *config);
 
+bool ICACHE_FLASH_ATTR Camera_is_busy();
+void ICACHE_FLASH_ATTR Camera_set_busy();
+void ICACHE_FLASH_ATTR Camera_unset_busy();
+
 #endif
