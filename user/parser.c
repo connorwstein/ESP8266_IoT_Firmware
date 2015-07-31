@@ -247,6 +247,8 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 				ets_intr_lock();
 				Camera_unset_busy();
 				ets_intr_unlock();
+			} else {
+				ets_intr_unlock();
 			}
 
 			break;

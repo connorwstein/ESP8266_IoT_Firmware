@@ -44,6 +44,22 @@ static const struct camera_data DEFAULT_CAMERA_DATA = {.baud = 38400, .gpio_rx =
 
 static bool IS_CAMERA_BUSY = true;	/* true because reset! */
 
+#define READ_PICTURE_CONTENTS_TIMEOUT	10000	/* In seconds */
+static ETSTimer unlock_timer;		/* timer to unlock camera if read data never comes. */
+
+static void ICACHE_FLASH_ATTR cancel_read_picture(void *timer_arg)
+{
+	disable_interrupts();
+	destroy_rx_buffer(previous_rxbuffer);
+	previous_rxbuffer = NULL;
+
+	ets_intr_lock();
+	IS_CAMERA_BUSY = false;
+	ets_intr_unlock();
+
+	ets_uart_printf("Camera read picture contents timeout.\n");
+}
+
 static void ICACHE_FLASH_ATTR print_rx_buffer(struct rx_buffer *buffer)
 {
 	int j = 0;
@@ -61,6 +77,7 @@ static void camera_picture_recv_done(struct rx_buffer *buffer)
 	uint16 offset;
 	int rc;
 
+	os_timer_disarm(&unlock_timer);
 	ets_uart_printf("Done receiving picture contents: %d bytes\n", buffer->size);
 	ets_uart_printf("Sending data to phone.\n");
 
@@ -262,7 +279,12 @@ int ICACHE_FLASH_ATTR Camera_read_content(uint16 init_addr, uint16 data_len,
 	bit_bang_send(command, sizeof command);
 	previous_rxbuffer = read_content_buffer;
 
-	/* Do not unlock the camera here. It will be done after the camera has received all data. */
+	os_timer_disarm(&unlock_timer);
+	os_timer_setfn(&unlock_timer, cancel_read_picture, NULL);
+	os_timer_arm(&unlock_timer, READ_PICTURE_CONTENTS_TIMEOUT, 0);
+
+	/* Do not unlock the camera here. It will be done after the
+	   camera has received all data, or the timeout has occured. */
 	ets_uart_printf("Free heap size = %u\n", system_get_free_heap_size());
 	return 0;
 }
