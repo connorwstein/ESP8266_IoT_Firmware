@@ -154,7 +154,9 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 			if (os_strcmp(cmd, "Lighting Get") == 0)
 				Lighting_get_light(conn);
 			else if (os_strcmp(cmd, "Lighting Set") == 0)
-				Lighting_toggle_light();
+		//		Lighting_toggle_light();
+		//	else if (os_strcmp(cmd, "Lighting Dim Set") == 0)
+				Lighting_dim(atoi(params));
 
 			break;
 		case CAMERA:
@@ -243,6 +245,18 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 					send_reply("Camera Compression Ratio Set", conn);
 				else
 					send_reply("Camera Compression Ratio Fail", conn);
+
+				ets_intr_lock();
+				Camera_unset_busy();
+				ets_intr_unlock();
+			} else if (os_strcmp(cmd, "Camera Image Size Set") == 0) {
+				Camera_set_busy();
+				ets_intr_unlock();
+
+				if (Camera_set_image_size(atoi(params)) == 0)
+					send_reply("Camera Image Size Set", conn);
+				else
+					send_reply("Camera Image Size Set Fail", conn);
 
 				ets_intr_lock();
 				Camera_unset_busy();

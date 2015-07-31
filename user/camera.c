@@ -18,13 +18,14 @@
 #define READ_CONTENT_RESPONSE_SIZE		5
 #define STOP_PICTURES_RESPONSE_SIZE		5
 #define COMPRESSION_RATIO_RESPONSE_SIZE		5
+#define SET_IMAGE_SIZE_RESPONSE_SIZE		5
 #define POWER_SAVING_ON_RESPONSE_SIZE		5
 #define POWER_SAVING_OFF_RESPONSE_SIZE		5
 #define SET_BAUD_RATE_RESPONSE_SIZE		5
 
 /* In microseconds. Should be long enough for the camera to respond,
    but not too long to avoid triggering the watchdog reset. */
-#define CAMERA_RESPONSE_TIMEOUT			5000
+#define CAMERA_RESPONSE_TIMEOUT			10000
 
 static struct rx_buffer *previous_rxbuffer = NULL;
 
@@ -372,9 +373,53 @@ int ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio)
 	return 0;
 }
 
-int ICACHE_FLASH_ATTR Camera_set_image_size()
+int ICACHE_FLASH_ATTR Camera_set_image_size(uint8 size)
 {
-	// wat
+	uint8 command[] = {'\x56', '\x00', '\x54', '\x01', '\x00'};
+	uint8 success[] = {'\x76', '\x00', '\x54', '\x00', '\x00'};
+	struct rx_buffer *set_image_size_buffer;
+	int clock;
+
+	if (size > 2) {
+		ets_uart_printf("Invalid size value: %d\n", size);
+		return -1;
+	}
+
+	command[4] = size * 0x11;
+	set_image_size_buffer = create_rx_buffer(SET_IMAGE_SIZE_RESPONSE_SIZE, NULL);
+
+	if (set_image_size_buffer == NULL) {
+		return -1;
+	}
+
+	ets_uart_printf("Set image size to %s...\n", size == 0 ? "640 x 480" : (size == 1 ? "320 x 240" : "160 x 120"));
+	set_rx_buffer(set_image_size_buffer);
+	enable_interrupts();
+	bit_bang_send(command, sizeof command);
+
+	clock = NOW();
+
+	/* wait until buffer is full or there is a timeout */
+	while (!read_buffer_full()) {
+		if ((NOW() - clock) > TOTICKS(CAMERA_RESPONSE_TIMEOUT)) {
+			ets_uart_printf("Camera response timeout.\n");
+			disable_interrupts();
+			destroy_rx_buffer(set_image_size_buffer);
+			return 1;
+		}
+	}
+
+	print_rx_buffer(set_image_size_buffer);
+
+	if (os_memcmp(set_image_size_buffer->buf, success, sizeof success) != 0) {
+		ets_uart_printf("Wrong set_image_size response.\n");
+		destroy_rx_buffer(set_image_size_buffer);
+		return 1;
+	}
+
+	destroy_rx_buffer(set_image_size_buffer);
+//	Camera_reset();	/* Need to reset the camera for this to take effect. */
+	return 0;
 }
 
 int ICACHE_FLASH_ATTR Camera_power_saving_on()
