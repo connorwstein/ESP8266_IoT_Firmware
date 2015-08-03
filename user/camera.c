@@ -113,24 +113,6 @@ static int ICACHE_FLASH_ATTR camera_save_config()
 	return 0;
 }
 
-static int ICACHE_FLASH_ATTR camera_save_config()
-{
-	struct camera_data data;
-
-	os_memset(&data, 0, sizeof data);
-	data.baud = baud_rate;
-	data.gpio_rx = gpio_camera_rx;
-	data.gpio_tx = gpio_camera_tx;
-
-	if (DeviceConfig_set_data(&data, sizeof data) != 0) {
-		ets_uart_printf("Failed to save camera config.\n");
-		return -1;
-	}
-
-	ets_uart_printf("Saved camera config.\n");
-	return 0;
-}
-
 int ICACHE_FLASH_ATTR Camera_reset()
 {
 	uint8 command[] = {'\x56', '\x00', '\x26', '\x00'};
