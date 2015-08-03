@@ -13,7 +13,7 @@
 #define MQTT_DEVICE_ID	"client_id"
 #define MQTT_USER	""
 #define MQTT_PASS	""
-#define MQTT_KEEPALIVE	0
+#define MQTT_KEEPALIVE	60
 
 /* Comment/uncomment this to determine if the
    device will be used as a locator or not. */

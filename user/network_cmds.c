@@ -15,12 +15,10 @@
 
 extern void ICACHE_FLASH_ATTR init_done();
 
-extern struct espconn *ap_server_conn;
-extern struct espconn *sta_server_conn;
-
-void ICACHE_FLASH_ATTR go_back_to_ap(struct espconn *conn)
+void ICACHE_FLASH_ATTR go_back_to_ap()
 {
 	DEBUG("enter go_back_to_ap");
+	static ETSTimer init_done_timer;
 	char ssid[32];
 	char password[64] = DEFAULT_AP_PASSWORD;
 	uint8 channel = DEFAULT_AP_CHANNEL;
@@ -52,16 +50,7 @@ void ICACHE_FLASH_ATTR go_back_to_ap(struct espconn *conn)
 		return;
 	}
 
-	if (conn != NULL) {
-//		if (espconn_disconnect(conn) != 0)
-//			ets_uart_printf("Failed to disconnect station client espconn.\n");
-	}
-
-	if (sta_server_conn != NULL) {
-//		if (espconn_disconnect(sta_server_conn) != 0)
-//			ets_uart_printf("Failed to disconnect station server espconn.\n");
-	}
-
+	sta_server_close();
 	generate_default_ssid(ssid, sizeof ssid);
 
 	set_connected_as_station(false);
@@ -78,27 +67,22 @@ void ICACHE_FLASH_ATTR go_back_to_ap(struct espconn *conn)
 		return;
 	}
 
-	init_done();
+	/* Need to exit the function to make sure the ip_info gets set.
+	   Call init_done in the timer callback instead. */
+	os_timer_disarm(&init_done_timer);
+	os_timer_setfn(&init_done_timer, init_done, NULL);
+	os_timer_arm(&init_done_timer, 1, false);
 	DEBUG("exit go_back_to_ap");
 }
 
-void ICACHE_FLASH_ATTR connect_to_network(const char *ssid, const char *password, struct espconn *conn)
+void ICACHE_FLASH_ATTR connect_to_network(const char *ssid, const char *password)
 {
 	DEBUG("enter connect_to_network");
-	ets_uart_printf("Received command to connect to SSID: %s with password %s\n",
-				ssid, password);
+	ets_uart_printf("Received command to connect to SSID: %s with password %s\n", ssid, password);
 	
-	if (espconn_disconnect(conn) != 0)
-		ets_uart_printf("Failed to disconnect client espconn.\n");
-
-	if (ap_server_conn != NULL) {
-//		if (espconn_disconnect(ap_server_conn) != 0)
-//			ets_uart_printf("Failed to disconnect access point espconn.\n");
-
-//		ap_server_conn = NULL;
-	}
-
+	ap_server_close();
 	ets_uart_printf("Disconnected\n");
+
 	set_received_connect_instruction(true);
 	start_station(ssid, password);
 	ets_uart_printf("\n");

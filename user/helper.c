@@ -73,7 +73,7 @@ void ICACHE_FLASH_ATTR print_softap_config(const struct softap_config *config)
 	DEBUG("exit print_softap_config");
 }
 
-const char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid)
+char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid)
 {
 	DEBUG("enter str_bssid");
 	static char bssid_str[20];
@@ -86,7 +86,7 @@ const char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid)
 	return bssid_str;
 }
 
-const char * ICACHE_FLASH_ATTR str_mac(uint8 *mac)
+char * ICACHE_FLASH_ATTR str_mac(uint8 *mac)
 {
 	DEBUG("enter str_mac");
 	static char mac_str[20];
@@ -99,7 +99,7 @@ const char * ICACHE_FLASH_ATTR str_mac(uint8 *mac)
 	return mac_str;
 }
 
-const char * ICACHE_FLASH_ATTR inet_ntoa(uint32 addr)
+char * ICACHE_FLASH_ATTR inet_ntoa(uint32 addr)
 {
 	DEBUG("enter inet_ntoa");
 	static char addr_str[17];

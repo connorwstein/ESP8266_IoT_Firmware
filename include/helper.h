@@ -12,11 +12,11 @@ int ICACHE_FLASH_ATTR generate_default_ssid(char *ssid, uint8 len);
 
 void ICACHE_FLASH_ATTR print_softap_config(const struct softap_config *config);
 
-const char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid);
-const char * ICACHE_FLASH_ATTR inet_ntoa(uint32 addr);
+char * ICACHE_FLASH_ATTR str_bssid(uint8 *bssid);
+char * ICACHE_FLASH_ATTR inet_ntoa(uint32 addr);
 
 void ICACHE_FLASH_ATTR print_ip_info(const struct ip_info *info);
 
-const char * ICACHE_FLASH_ATTR str_mac(uint8 *mac);
+char * ICACHE_FLASH_ATTR str_mac(uint8 *mac);
 
 #endif

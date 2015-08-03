@@ -16,9 +16,14 @@ int ICACHE_FLASH_ATTR Camera_stop_pictures();
 int ICACHE_FLASH_ATTR Camera_compression_ratio(uint8 ratio);
 int ICACHE_FLASH_ATTR Camera_power_saving_on();
 int ICACHE_FLASH_ATTR Camera_power_saving_off();
+int ICACHE_FLASH_ATTR Camera_set_image_size(uint8 size);
 int ICACHE_FLASH_ATTR Camera_set_baud_rate(uint32 baud);
 
 int ICACHE_FLASH_ATTR Camera_init(struct DeviceConfig *config);
 int ICACHE_FLASH_ATTR Camera_set_default_data(struct DeviceConfig *config);
+
+bool ICACHE_FLASH_ATTR Camera_is_busy();
+void ICACHE_FLASH_ATTR Camera_set_busy();
+void ICACHE_FLASH_ATTR Camera_unset_busy();
 
 #endif
