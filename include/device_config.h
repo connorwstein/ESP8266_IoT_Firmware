@@ -24,7 +24,7 @@
 enum DeviceType_t {
 	NONE = 0,
 	TEMPERATURE,
-	THERMOSTAT,
+	HEATER,
 	LIGHTING,
 	CAMERA
 };

@@ -11,6 +11,7 @@
 #include "device_config.h"
 
 #include "temperature.h"
+#include "heater.h"
 #include "lighting.h"
 #include "camera.h"
 
@@ -105,8 +106,8 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 	} else if (os_strcmp(cmd, "Type") == 0) {
 		if (os_strcmp(params, "Temperature") == 0)
 			rc = DeviceConfig_set_type(TEMPERATURE);
-		else if (os_strcmp(params, "Thermostat") == 0)
-			rc = DeviceConfig_set_type(THERMOSTAT);
+		else if (os_strcmp(params, "Heater") == 0)
+			rc = DeviceConfig_set_type(HEATER);
 		else if (os_strcmp(params, "Lighting") == 0)
 			rc = DeviceConfig_set_type(LIGHTING);
 		else if (os_strcmp(params, "Camera") == 0)
@@ -148,7 +149,12 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 				Temperature_get_temperature(conn);
 
 			break;
-		case THERMOSTAT:
+		case HEATER:
+			if (os_strcmp(cmd, "Heater Off") == 0)
+				Heater_turn_off();
+			else if (os_strcmp(cmd, "Heater On") == 0)
+				Heater_turn_on();
+
 			break;
 		case LIGHTING:
 			if (os_strcmp(cmd, "Lighting Get") == 0)

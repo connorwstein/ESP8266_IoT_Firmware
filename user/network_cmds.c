@@ -121,7 +121,7 @@ void ICACHE_FLASH_ATTR udp_send_deviceinfo(struct espconn *conn)
 
 	os_memset(buff, 0, sizeof buff);
 
-	if (strlen(conf.name) > 0)
+	if (os_strlen(conf.name) > 0)
 		os_sprintf(buff, "NAME:%s IP:%s MAC:%s ROOM:%s TYPE:%s",
 				conf.name, inet_ntoa(info.ip.addr), str_mac(mac),
 				conf.room, DeviceConfig_strtype(conf.type));

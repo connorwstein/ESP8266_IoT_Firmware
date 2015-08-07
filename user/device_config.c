@@ -17,7 +17,7 @@ const char *ICACHE_FLASH_ATTR DeviceConfig_strtype(enum DeviceType_t type)
 	switch (type) {
 		case NONE:		return "None";
 		case TEMPERATURE:	return "Temperature";
-		case THERMOSTAT:	return "Thermostat";
+		case HEATER:		return "Heater";
 		case LIGHTING:		return "Lighting";
 		case CAMERA:		return "Camera";
 
@@ -219,8 +219,8 @@ static int device_set_default_data(struct DeviceConfig *config, enum DeviceType_
 		case TEMPERATURE:
 				return Temperature_set_default_data(config);
 
-		case THERMOSTAT:
-				break;
+		case HEATER:
+				return Heater_set_default_data(config);
 
 		case LIGHTING:
 				return Lighting_set_default_data(config);
@@ -338,7 +338,12 @@ bool ICACHE_FLASH_ATTR DeviceInit()
 
 				break;
 
-		case THERMOSTAT:
+		case HEATER:
+				if (Heater_init(&conf) != 0) {
+					ets_uart_printf("Failed to init heater.\n");
+					return false;
+				}
+
 				break;
 
 		case LIGHTING:
