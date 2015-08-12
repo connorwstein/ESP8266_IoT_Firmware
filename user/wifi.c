@@ -17,8 +17,9 @@ static bool HAS_RECEIVED_CONNECT_INSTRUCTION = false;
 static bool IN_LOCATOR_MODE = false;
 
 #define LOCATOR_TIMEOUT		10000	/* in milliseconds */
-#define LOW_POWER_VALUE		50
-#define HIGH_POWER_VALUE	80	/* in whatever units system_phy_set_max_tpw uses */
+
+uint8 LOW_POWER_VALUE = 50;
+uint8 HIGH_POWER_VALUE = 80;	/* in whatever units system_phy_set_max_tpw uses */
 #endif
 
 /* Set this as wifi handler between system_restart() and resetting the flags
@@ -192,6 +193,24 @@ void ICACHE_FLASH_ATTR start_locator_mode()
 	os_timer_setfn(&locator_timer, stop_locator_mode, NULL);
 	os_timer_arm(&locator_timer, LOCATOR_TIMEOUT, false);
 	DEBUG("exit start_locator_mode");
+}
+
+void ICACHE_FLASH_ATTR locator_set_low_power(uint8 val)
+{
+	if (val >= 82)
+		val = 82;
+
+	LOW_POWER_VALUE = val;
+	ets_uart_printf("Locator low power value set to %d\n", val);
+}
+
+void ICACHE_FLASH_ATTR locator_set_high_power(uint8 val)
+{
+	if (val >= 82)
+		val = 82;
+
+	HIGH_POWER_VALUE = val;
+	ets_uart_printf("Locator high power value set to %d\n", val);
 }
 #endif
 

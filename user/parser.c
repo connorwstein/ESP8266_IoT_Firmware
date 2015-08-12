@@ -130,7 +130,29 @@ void ICACHE_FLASH_ATTR tcpparser_process_data(char *data, uint16 len, struct esp
 
 		DEBUG("exit tcpparser_process_data");
 		return;
+#ifdef USE_AS_LOCATOR
+	} else if (os_strcmp(cmd, "Power") == 0) {
+		char *low, *high;
+		high = params;
+		low = separate(params, ';');
+
+		/* Check for valid numbers */
+		if (os_strlen(high) == 0 || os_strlen(low) == 0) {
+			send_reply("Power Set Fail", conn);
+		} else if ((high[0] < '0' || high[0] > '9') || (low[0] < '0' || low[0] > '9')) {
+			send_reply("Power Set Fail", conn);
+		} else {
+			locator_set_high_power(atoi(high));
+			locator_set_low_power(atoi(low));
+			send_reply("Power Set", conn);
+		}
+
+		DEBUG("exit tcpparser_process_data");
+		return;
 	}
+#else
+	}
+#endif
 
 	if (!DeviceConfig_already_exists()) {
 		DEBUG("exit tcpparser_process_data");
