@@ -34,7 +34,7 @@ void ICACHE_FLASH_ATTR Lighting_dim(uint8 intensity)
 	if (intensity == 0)
 		duuts = 0.0;
 	else
-		duuts = 400.0 + 1.7 * (float)intensity;
+		duuts = 400.0 + 1.05 * (float)intensity;
 
 	ets_uart_printf("Dimming light: %d%%\n", intensity);
 	ets_uart_printf("duuts = %d\n", (int)duuts);
